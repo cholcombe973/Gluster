@@ -2,20 +2,22 @@ extern crate regex;
 extern crate uuid;
 use regex::Regex;
 use uuid::Uuid;
+use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 
 /*
     Python will call rust with ctypes to do the hard work
 */
+#[derive(Hash, PartialEq, Eq)]
 pub struct Brick {
     pub peer: Peer,
     pub path: PathBuf,
 }
 
 impl Brick{
-    pub fn as_str(&self) -> String{
-        self.peer.hostname.clone() + ":" + self.path.to_str().unwrap()
+    pub fn to_string(&self) -> String{
+        format!("{}:{}", self.peer.hostname.clone(), self.path.to_str().unwrap())
     }
 }
 
@@ -25,40 +27,67 @@ impl fmt::Debug for Brick {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum State {
     Connected,
     Disconnected,
+    Unknown,
 }
 
 impl State {
-    fn new(name: &str)->State{
+    pub fn new(name: &str)->State{
         match name.trim() {
             "Connected" => State::Connected,
             "Disconnected" => State::Disconnected,
-            _ => State::Disconnected,
+            _ => State::Unknown,
         }
     }
-    fn to_string(self) -> String {
+    pub fn to_string(self) -> String {
         match self {
             State::Connected => "Connected".to_string(),
             State::Disconnected => "Disconnected".to_string(),
+            State::Unknown => "Unknown".to_string(),
         }
     }
 }
+#[derive(Debug)]
+pub struct Quota{
+    pub path: PathBuf,
+    pub limit: u64,
+    pub used: u64,
+}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Peer {
    pub uuid: Uuid,
    pub hostname: String,
    pub status: State,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Transport {
     Tcp,
     Rdma,
     TcpAndRdma,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum VolumeTranslator{
+    Stripe,
+    Replica,
+    Disperse,
+    Redundancy,
+}
+
+impl VolumeTranslator{
+    fn to_string(self) -> String {
+        match self {
+            VolumeTranslator::Stripe => "stripe".to_string(),
+            VolumeTranslator::Replica => "replica".to_string(),
+            VolumeTranslator::Disperse => "disperse".to_string(),
+            VolumeTranslator::Redundancy => "redundancy".to_string(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -68,7 +97,7 @@ pub enum VolumeType {
     Replicate,
     StripedAndReplicate,
     Disperse,
-    Tier,
+    //Tier,
     DistributedAndStripe,
     DistributedAndReplicate,
     DistributedAndStripedAndReplicate,
@@ -76,14 +105,14 @@ pub enum VolumeType {
 }
 
 impl VolumeType {
-    fn new(name: &str)->VolumeType{
+    pub fn new(name: &str)->VolumeType{
         match name.trim() {
             "Distribute" => VolumeType::Distribute,
             "Stripe" => VolumeType::Stripe,
             "Replicate" => VolumeType::Replicate,
             "Striped-Replicate" => VolumeType::StripedAndReplicate,
             "Disperse" => VolumeType::Disperse,
-            "Tier" => VolumeType::Tier,
+            //"Tier" => VolumeType::Tier, //TODO: Waiting for this to become stable
             "Distributed-Stripe" => VolumeType::DistributedAndStripe,
             "Distributed-Replicate" => VolumeType::DistributedAndReplicate,
             "Distributed-Striped-Replicate" => VolumeType::DistributedAndStripedAndReplicate,
@@ -91,14 +120,14 @@ impl VolumeType {
             _ => VolumeType::Replicate,
         }
     }
-    fn to_string(self) -> String {
+    pub fn to_string(self) -> String {
         match self {
             VolumeType::Distribute => "Distribute".to_string(),
             VolumeType::Stripe => "Stripe".to_string(),
             VolumeType::Replicate => "Replicate".to_string(),
             VolumeType::StripedAndReplicate => "Striped-Replicate".to_string(),
             VolumeType::Disperse => "Disperse".to_string(),
-            VolumeType::Tier => "Tier".to_string(),
+            //VolumeType::Tier => "Tier".to_string(), //TODO: Waiting for this to become stable
             VolumeType::DistributedAndStripe => "Distributed-Stripe".to_string(),
             VolumeType::DistributedAndReplicate => "Distributed-Replicate".to_string(),
             VolumeType::DistributedAndStripedAndReplicate => "Distributed-Striped-Replicate".to_string(),
@@ -114,7 +143,7 @@ pub struct Volume {
     pub id: Uuid,
     pub status: String,
     pub transport: Transport,
-    pub bricks: Box<Vec<String>>, //TODO: Change me to struct Brick
+    pub bricks: Vec<Brick>,
 }
 
 impl Transport {
@@ -145,7 +174,7 @@ fn fn run_command(command: &str, arg_list: Vec<String>, as_root: bool, script_mo
 /*
 #[cfg(not(test))]
 */
-fn run_command(command: &str, arg_list: Vec<String>, as_root: bool, script_mode: bool) -> std::process::Output{
+fn run_command(command: &str, arg_list: &Vec<String>, as_root: bool, script_mode: bool) -> std::process::Output{
     if as_root{
         let mut cmd = std::process::Command::new("sudo");
         cmd.arg(command);
@@ -155,7 +184,6 @@ fn run_command(command: &str, arg_list: Vec<String>, as_root: bool, script_mode:
         for arg in arg_list{
             cmd.arg(&arg);
         }
-        println!("Running command: {:?}", cmd);
         let output = cmd.output().unwrap_or_else(|e| { panic!("failed to execute process: {} ", e)});
         return output;
     }else{
@@ -166,7 +194,6 @@ fn run_command(command: &str, arg_list: Vec<String>, as_root: bool, script_mode:
         for arg in arg_list{
             cmd.arg(&arg);
         }
-        println!("Running command: {:?}", cmd);
         let output = cmd.output().unwrap_or_else(|e| { panic!("failed to execute process: {} ", e)});
         return output;
     }
@@ -179,7 +206,7 @@ pub extern fn peer_list() ->Vec<Peer>{
     arg_list.push("pool".to_string());
     arg_list.push("list".to_string());
 
-    let output = run_command("gluster", arg_list, true, false);
+    let output = run_command("gluster", &arg_list, true, false);
     let output_str = String::from_utf8(output.stdout).unwrap();
 
     for line in output_str.lines(){
@@ -200,49 +227,44 @@ pub extern fn peer_list() ->Vec<Peer>{
 }
 
 //Probe a peer and prevent double probing
-pub fn peer_probe(hostname: &String){
+pub fn peer_probe(hostname: &str)->Result<i32,String>{
     let current_peers = peer_list();
     for peer in current_peers{
         if peer.hostname == *hostname{
-            println!("hostname: {} is already part of the cluster", hostname);
             //Bail instead of double probing
-            return;
+            return Err(format!("hostname: {} is already part of the cluster", hostname));
         }
     }
     let mut arg_list: Vec<String>  = Vec::new();
     arg_list.push("peer".to_string());
     arg_list.push("probe".to_string());
-    arg_list.push(hostname.clone());
+    arg_list.push(hostname.to_string());
 
-    let output = run_command("gluster", arg_list, true, false);
+    let output = run_command("gluster", &arg_list, true, false);
     let status = output.status;
 
-    if ! status.success(){
-        println!("gluster peer probe failed");
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
     }
 }
 
-pub fn peer_remove(hostname: String){
-    let status = std::process::Command::new("sudo")
-        .arg("gluster")
-        .arg("peer")
-        .arg("detach")
-        .arg(&hostname)
-        .status().unwrap_or_else(|e| { panic!("failed to execute process: {} ", e)});
-    if ! status.success(){
-        println!("gluster peer removal failed. Trying harder");
-        let force = std::process::Command::new("sudo")
-            .arg("gluster")
-            .arg("peer")
-            .arg("detach")
-            .arg(&hostname)
-            .arg("force")
-            .status().unwrap_or_else(|e| { panic!("failed to execute process: {} ", e)});
-        if ! force.success(){
-            println!("gluster peer removal with force failed. Giving up");
-        }
-    }else{
-        println!("gluster removed peer {}", hostname);
+pub fn peer_remove(hostname: &str, force: bool)->Result<i32, String>{
+    let mut arg_list: Vec<String> = Vec::new();
+    arg_list.push("peer".to_string());
+    arg_list.push("detach".to_string());
+    arg_list.push(hostname.to_string());
+
+    if force{
+        arg_list.push("force".to_string());
+    }
+
+    let output = run_command("gluster", &arg_list, true, false);
+    let status = output.status;
+
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
     }
 }
 
@@ -256,12 +278,37 @@ fn split_and_return_field(field_number: usize, string: String) -> String{
     }
 }
 
-pub fn volume_info(volume: &String) -> Option<Volume> {
+//Note this will panic on failure to parse u64
+pub fn translate_to_bytes(value: &str) -> Option<u64> {
+    if value.ends_with("PB"){
+        let num: u64 = value.trim_right_matches("PB").parse::<u64>().unwrap();
+        return Some(num * 1024 * 1024 * 1024 * 1024 * 1024);
+    }else if value.ends_with("TB"){
+        let num: u64 = value.trim_right_matches("TB").parse::<u64>().unwrap();
+        return Some(num * 1024 * 1024 * 1024 * 1024);
+    }else if value.ends_with("GB"){
+        let num: u64 = value.trim_right_matches("GB").parse::<u64>().unwrap();
+        return Some(num * 1024 * 1024 * 1024);
+    } else if value.ends_with("MB"){
+        let num: u64 = value.trim_right_matches("MB").parse::<u64>().unwrap();
+        return Some(num * 1024 * 1024);
+    }else if value.ends_with("KB"){
+        let num: u64 = value.trim_right_matches("KB").parse::<u64>().unwrap();
+        return Some(num * 1024);
+    }else if value.ends_with("Bytes"){
+        let num: u64 = value.trim_right_matches("Bytes").parse::<u64>().unwrap();
+        return Some(num);
+    }else {
+        return None;
+    }
+}
+
+pub fn volume_info(volume: &str) -> Option<Volume> {
     let mut arg_list: Vec<String>  = Vec::new();
     arg_list.push("volume".to_string());
     arg_list.push("info".to_string());
-    arg_list.push(volume.clone());
-    let output = run_command("gluster", arg_list, true, false);
+    arg_list.push(volume.to_string());
+    let output = run_command("gluster", &arg_list, true, false);
     let status = output.status;
 
     if !status.success(){
@@ -274,7 +321,7 @@ pub fn volume_info(volume: &String) -> Option<Volume> {
     let mut volume_type = String::new();
     let mut name = String::new();
     let mut status = String::new();
-    let mut bricks: Box<Vec<String>> =  Box::new(Vec::new());
+    let mut bricks: Vec<Brick> = Vec::new();
     let mut id = Uuid::nil();
 
     if output_str.trim() == "No volumes present"{
@@ -317,7 +364,19 @@ pub fn volume_info(volume: &String) -> Option<Volume> {
                 Err(err) => panic!("{}", err),
             };
             if re.is_match(line){
-                let brick = split_and_return_field(1, line.to_string());
+                let brick_str = split_and_return_field(1, line.to_string());
+                let brick_parts: Vec<&str> = brick_str.split(":").collect();
+                assert!(brick_parts.len() == 2, "Failed to parse bricks from gluster vol info");
+                let peer = Peer{
+                    uuid: Uuid::new_v4(),
+                    hostname: brick_parts[0].to_string(),
+                    status: State::Unknown,
+                };
+                let brick = Brick{
+                    peer: peer,
+                    path: PathBuf::from(brick_parts[1].to_string()),
+                };
+
                 bricks.push(brick);
             }
         }
@@ -333,172 +392,335 @@ pub fn volume_info(volume: &String) -> Option<Volume> {
     return Some(vol_info);
 }
 
-//volume add-brick <VOLNAME> [<stripe|replica> <COUNT>]
-//<NEW-BRICK> ... [force] - add brick to volume <VOLNAME>
-fn volume_add_brick_replicated(volume: String,
+
+//Return a list of quotas on the volume if any
+pub fn quota_list(volume: &str)->Option<Vec<Quota>>{
+/*
+  root@chris-ThinkPad-T410s:~# gluster vol quota test list
+                    Path                   Hard-limit Soft-limit   Used  Available  Soft-limit exceeded? Hard-limit exceeded?
+  ---------------------------------------------------------------------------------------------------------------------------
+  /                                        100.0MB       80%      0Bytes 100.0MB              No                   No
+
+  There are 2 ways to get quota information
+  1. List the quota's with the quota list command.  This command has been known in the past to hang
+  in certain situations.
+  2. Go to the backend brick and getfattr -d -e hex -m . dir_name/ on the directory directly:
+    /mnt/x1# getfattr -d -e hex -m . quota/
+    # file: quota/
+    trusted.gfid=0xdb2443e4742e4aaf844eee40405ad7ae
+    trusted.glusterfs.dht=0x000000010000000000000000ffffffff
+    trusted.glusterfs.quota.00000000-0000-0000-0000-000000000001.contri=0x0000000000000000
+    trusted.glusterfs.quota.dirty=0x3000
+    trusted.glusterfs.quota.limit-set=0x0000000006400000ffffffffffffffff
+    trusted.glusterfs.quota.size=0x0000000000000000
+  TODO: link to the c xattr library #include <sys/xattr.h> and implement method 2
+*/
+    let mut quota_list: Vec<Quota> = Vec::new();
+    let mut args_list: Vec<String> = Vec::new();
+    args_list.push("gluster".to_string());
+    args_list.push("volume".to_string());
+    args_list.push("quota".to_string());
+    args_list.push(volume.to_string());
+    args_list.push("list".to_string());
+
+    let output = run_command("gluster", &args_list, true, false);
+    let status = output.status;
+
+    //Rule out case of quota's being disabled on the volume
+    if !status.success(){
+        return None;
+    }
+
+    let output_str = String::from_utf8(output.stdout).unwrap();
+
+    if output_str.trim() == format!("quota: No quota configured on volume {}", volume){
+        return None;
+    }
+    for line in output_str.lines(){
+        if line.is_empty(){
+            //Skip the first blank line in the output
+            continue;
+        }
+        if line.starts_with(" "){
+            continue;
+        }
+        if line.starts_with("-"){
+            continue;
+        }
+        //Ok now that we've eliminated the garbage
+        let parts: Vec<&str> = line.split(" ").filter(|s| !s.is_empty()).collect::<Vec<&str>>();
+        //Output should match: ["/", "100.0MB", "80%", "0Bytes", "100.0MB", "No", "No"]
+        if parts.len() > 3{
+            let limit = translate_to_bytes(parts[1]).unwrap();
+            let used = translate_to_bytes(parts[3]).unwrap();
+            let quota = Quota{
+                path: PathBuf::from(parts[0].to_string()),
+                limit: limit,
+                used: used,
+            };
+            quota_list.push(quota);
+        }
+        //else?
+    }
+    return Some(quota_list);
+}
+
+pub fn volume_enable_quotas(volume: &str)->Result<i32, String>{
+    let mut arg_list: Vec<String> = Vec::new();
+    arg_list.push("gluster".to_string());
+    arg_list.push("volume".to_string());
+    arg_list.push("quota".to_string());
+    arg_list.push(volume.to_string());
+    arg_list.push("enable".to_string());
+
+    let output = run_command("gluster", &arg_list, true, false);
+    let status = output.status;
+
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
+    }
+}
+
+pub fn volume_disable_quotas(volume: &str)->Result<i32, String>{
+    let mut arg_list: Vec<String> = Vec::new();
+    arg_list.push("gluster".to_string());
+    arg_list.push("volume".to_string());
+    arg_list.push("quota".to_string());
+    arg_list.push(volume.to_string());
+    arg_list.push("disable".to_string());
+
+    let output = run_command("gluster", &arg_list, true, false);
+    let status = output.status;
+
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
+    }
+}
+
+pub fn volume_add_quota(
+    volume: &str,
+    path: PathBuf,
+    size: u64)->Result<i32,String>{
+
+    let mut arg_list: Vec<String> = Vec::new();
+    arg_list.push("gluster".to_string());
+    arg_list.push("volume".to_string());
+    arg_list.push("quota".to_string());
+    arg_list.push(volume.to_string());
+    arg_list.push("limit-usage".to_string());
+    arg_list.push(path.to_str().unwrap().to_string());
+    arg_list.push(size.to_string());
+
+    let output = run_command("gluster", &arg_list, true, false);
+    let status = output.status;
+
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
+    }
+}
+/*
+pub fn volume_shrink_replicated(volume: &str,
     replica_count: usize,
     bricks: Vec<Brick>,
-    force: bool){
+    force: bool) -> Result<i32,String> {
+    //volume remove-brick <VOLNAME> [replica <COUNT>] <BRICK> ... <start|stop|status|c
+    //ommit|force> - remove brick from volume <VOLNAME>
+}
+*/
+
+//volume add-brick <VOLNAME> [<stripe|replica> <COUNT>]
+//<NEW-BRICK> ... [force] - add brick to volume <VOLNAME>
+pub fn volume_add_brick(volume: &str,
+    bricks: Vec<Brick>,
+    force: bool) -> Result<i32,String> {
 
     if bricks.is_empty(){
-        println!("The brick list is empty.  Not creating volume");
-        //TODO: change function to use Result<T, E>
-        return;
+        return Err("The brick list is empty. Not expanding volume".to_string());
     }
-    let replica_count_str = replica_count.to_string();
 
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("volume".to_string());
     arg_list.push("add-brick".to_string());
-    arg_list.push(volume);
-    arg_list.push("replica".to_string());
-    arg_list.push(replica_count_str);
+    arg_list.push(volume.to_string());
 
     for brick in bricks.iter(){
-        arg_list.push(brick.as_str());
+        arg_list.push(brick.to_string());
     }
     if force{
         arg_list.push("force".to_string());
     }
-    let status = run_command("gluster", arg_list, true, true).status;
-    if ! status.success(){
-        println!("gluster volume add-brick failed.");
+    let output = run_command("gluster", &arg_list, true, true);
+    let status = output.status;
+
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
     }
 }
 
-pub fn volume_start(volume: String, force: bool){
+pub fn volume_start(volume: &str, force: bool) -> Result<i32, String>{
     //Should I check the volume exists first?
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("volume".to_string());
     arg_list.push("start".to_string());
-    arg_list.push(volume);
+    arg_list.push(volume.to_string());
 
     if force {
         arg_list.push("force".to_string());
     }
-    let status = run_command("gluster", arg_list, true, true).status;
-    if ! status.success(){
-        println!("gluster volume start failed.");
+    let output = run_command("gluster", &arg_list, true, true);
+    let status = output.status;
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
     }
 }
 
-pub fn volume_stop(volume: String, force: bool){
+pub fn volume_stop(volume: &str, force: bool) -> Result<i32, String>{
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("volume".to_string());
     arg_list.push("stop".to_string());
-    arg_list.push(volume);
+    arg_list.push(volume.to_string());
 
     if force {
         arg_list.push("force".to_string());
     }
-    let status = run_command("gluster", arg_list, true, true).status;
-    if ! status.success(){
-        println!("gluster volume stop failed.");
+    let output = run_command("gluster", &arg_list, true, true);
+    let status = output.status;
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
     }
 }
 
-pub fn volume_delete(volume: String){
+pub fn volume_delete(volume: &str) -> Result<i32, String>{
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("volume".to_string());
     arg_list.push("delete".to_string());
-    arg_list.push(volume);
+    arg_list.push(volume.to_string());
 
-    let status = run_command("gluster", arg_list, true, true).status;
-    if ! status.success(){
-        println!("gluster volume delete failed.");
+    let output = run_command("gluster", &arg_list, true, true);
+    let status = output.status;
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
     }
 }
 
-pub fn volume_rebalance(volume: String){
-
+pub fn volume_rebalance(volume: &str){
+    //Usage: volume rebalance <VOLNAME> {{fix-layout start} | {start [force]|stop|status}}
 }
-/*
-    volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>]
-    [disperse [<COUNT>]] [redundancy <COUNT>] [transport <tcp|rdma|tcp,rdma>]
-    <NEW-BRICK>?<vg_name>... [force]
-*/
-pub fn volume_create_replicated(volume: String,
-    replica_count: usize,
-    transport: Transport,
+
+fn volume_create<T: ToString>(volume: &str,
+    options: HashMap<VolumeTranslator,T>,
+    transport: &Transport,
     bricks: Vec<Brick>,
-    force: bool){
+    force: bool) ->Result<i32, String>{
 
     if bricks.is_empty(){
-        println!("The brick list is empty.  Not creating volume");
-        //TODO: change function to use Result<T, E>
-        return;
+        return Err("The brick list is empty. Not creating volume".to_string());
     }
 
+    /*
+    //TODO: figure out how to check each VolumeTranslator type
     if (bricks.len() % replica_count) != 0 {
-        println!("The brick list and replica count do not match.  Not creating volume");
-        //TODO: change function to use Result<T, E>
-        return;
+        return Err("The brick list and replica count are not multiples. Not creating volume".to_string());
     }
-
-    let replica_count_str = replica_count.to_string();
+    */
 
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("volume".to_string());
     arg_list.push("create".to_string());
-    arg_list.push(volume);
-    arg_list.push("replica".to_string());
-    arg_list.push(replica_count_str);
+    arg_list.push(volume.to_string());
+
+    for (key, value) in options.iter(){
+        arg_list.push(key.clone().to_string());
+        arg_list.push(value.to_string());
+    }
+
     arg_list.push("transport".to_string());
-    arg_list.push(transport.to_string());
+    arg_list.push(transport.clone().to_string());
 
     for brick in bricks.iter(){
-        arg_list.push(brick.as_str());
+        arg_list.push(brick.to_string());
     }
     if force{
         arg_list.push("force".to_string());
     }
-    let output = run_command("gluster", arg_list, true, true);
+    let output = run_command("gluster", &arg_list, true, true);
 
-    if ! output.status.success(){
-        println!("gluster volume create failed.");
-        println!("Error: {:?}", output.stderr);
+    let status = output.status;
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(String::from_utf8(output.stderr).unwrap()),
     }
 }
 
-pub fn volume_create_erasure(volume: String,
+
+pub fn volume_create_replicated(volume: &str,
+    replica_count: usize,
+    transport: Transport,
+    bricks: Vec<Brick>,
+    force: bool) ->Result<i32, String>{
+
+    let mut volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
+    volume_translators.insert(VolumeTranslator::Replica, replica_count.to_string());
+
+    return volume_create(volume, volume_translators, &transport, bricks, force);
+}
+
+pub fn volume_create_striped(volume: &str,
+    stripe: usize,
+    transport: Transport,
+    bricks: Vec<Brick>,
+    force: bool)->Result<i32, String>{
+
+    let mut volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
+    volume_translators.insert(VolumeTranslator::Stripe, stripe.to_string());
+
+    return volume_create(volume, volume_translators, &transport, bricks, force);
+}
+
+pub fn volume_create_striped_replicated(volume: &str,
+    stripe: usize,
+    replica: usize,
+    transport: Transport,
+    bricks: Vec<Brick>,
+    force: bool)->Result<i32, String>{
+
+    let mut volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
+    volume_translators.insert(VolumeTranslator::Stripe, stripe.to_string());
+    volume_translators.insert(VolumeTranslator::Replica, replica.to_string());
+
+    return volume_create(volume, volume_translators, &transport, bricks, force);
+}
+
+pub fn volume_create_distributed(volume: &str,
+    transport: Transport,
+    bricks: Vec<Brick>,
+    force: bool)->Result<i32, String>{
+
+    let volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
+
+    return volume_create(volume, volume_translators, &transport, bricks, force);
+
+}
+
+pub fn volume_create_erasure(volume: &str,
     disperse: usize,
     redundancy: usize,
     transport: Transport,
     bricks: Vec<Brick>,
-    force: bool){
+    force: bool)->Result<i32, String>{
 
-    if bricks.is_empty(){
-        println!("The brick list is empty.  Not creating volume");
-        //TODO: change function to use Result<T, E>
-        return;
-    }
+    let mut volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
+    volume_translators.insert(VolumeTranslator::Disperse, disperse.to_string());
+    volume_translators.insert(VolumeTranslator::Redundancy, redundancy.to_string());
 
-    if (bricks.len() % disperse) != 0 {
-        println!("The brick list and disperse count do not match.  Not creating volume");
-        //TODO: change function to use Result<T, E>
-        return;
-    }
+    return volume_create(volume, volume_translators, &transport, bricks, force);
 
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("volume".to_string());
-    arg_list.push("create".to_string());
-    arg_list.push(volume);
-    arg_list.push("disperse".to_string());
-    arg_list.push(disperse.to_string());
-    arg_list.push("redundancy".to_string());
-    arg_list.push(redundancy.to_string());
-    arg_list.push("transport".to_string());
-    arg_list.push(transport.to_string());
-
-    for brick in bricks.iter(){
-        arg_list.push(brick.as_str());
-    }
-    if force{
-        arg_list.push("force".to_string());
-    }
-    let status = run_command("gluster", arg_list, true, true).status;
-    if ! status.success(){
-        println!("gluster volume create failed.");
-    }
 }
 //TODO: add functions for other vol types
