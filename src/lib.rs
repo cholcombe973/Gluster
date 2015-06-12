@@ -1,5 +1,7 @@
 extern crate regex;
 extern crate uuid;
+#[macro_use]
+extern crate log;
 use regex::Regex;
 use uuid::Uuid;
 use std::collections::HashMap;
@@ -9,7 +11,6 @@ use std::path::PathBuf;
 /*
     Python will call rust with ctypes to do the hard work
 */
-#[derive(Hash, PartialEq, Eq)]
 pub struct Brick {
     pub peer: Peer,
     pub path: PathBuf,
@@ -57,11 +58,16 @@ pub struct Quota{
     pub used: u64,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Peer {
    pub uuid: Uuid,
    pub hostname: String,
    pub status: State,
+}
+impl fmt::Debug for Peer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "UUID: {} Hostname: {} Status: {}", self.uuid.to_hyphenated_string(), self.hostname, self.status.to_string())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -171,9 +177,7 @@ fn fn run_command(command: &str, arg_list: Vec<String>, as_root: bool, script_mo
 }
 */
 
-/*
-#[cfg(not(test))]
-*/
+//TODO: Change me to Result<std::process::Output, String>
 fn run_command(command: &str, arg_list: &Vec<String>, as_root: bool, script_mode: bool) -> std::process::Output{
     if as_root{
         let mut cmd = std::process::Command::new("sudo");
@@ -184,6 +188,7 @@ fn run_command(command: &str, arg_list: &Vec<String>, as_root: bool, script_mode
         for arg in arg_list{
             cmd.arg(&arg);
         }
+        debug!("About to run command: {:?}", cmd);
         let output = cmd.output().unwrap_or_else(|e| { panic!("failed to execute process: {} ", e)});
         return output;
     }else{
@@ -194,41 +199,102 @@ fn run_command(command: &str, arg_list: &Vec<String>, as_root: bool, script_mode
         for arg in arg_list{
             cmd.arg(&arg);
         }
+        debug!("About to run command: {:?}", cmd);
         let output = cmd.output().unwrap_or_else(|e| { panic!("failed to execute process: {} ", e)});
         return output;
     }
 }
 
+//TODO: figure out a better way to do this.  This seems hacky
+pub fn get_local_ip()->Result<String, String>{//net::Ipv4Addr>{
+    let mut default_route: Vec<String>  = Vec::new();
+    default_route.push("route".to_string());
+    default_route.push("show".to_string());
+    default_route.push("0.0.0.0/0".to_string());
+
+    let cmd_output = run_command("ip", &default_route, false, false);
+    let default_route_stdout: String = try!(String::from_utf8(cmd_output.stdout).map_err(|e| e.to_string()));
+
+    //default via 192.168.1.1 dev wlan0  proto static
+    //let addr_regex = Regex::new(r"(?P<addr>via \S+)").unwrap();
+    let addr_regex = try!(Regex::new(r"(?P<addr>via \S+)").map_err(|e| e.to_string()));
+    let x = addr_regex.captures(&default_route_stdout).unwrap().name("addr");
+
+    //Skip "via" in the capture
+    let addr: Vec<&str> = x.unwrap().split(" ").skip(1).collect();
+
+    let mut arg_list: Vec<String>  = Vec::new();
+    arg_list.push("route".to_string());
+    arg_list.push("get".to_string());
+    arg_list.push(addr[0].to_string());
+
+    let src_address_output = run_command("ip", &arg_list, false, false);
+    //192.168.1.1 dev wlan0  src 192.168.1.7
+    let local_address_stdout = try!(String::from_utf8(src_address_output.stdout).map_err(|e| e.to_string()));
+    let src_regex = try!(Regex::new(r"(?P<src>src \S+)").map_err(|e| e.to_string()));
+    let capture_output = src_regex.captures(&local_address_stdout).unwrap().name("src");
+
+    //Skip src in the capture
+    let local_ip: Vec<&str> = capture_output.unwrap().split(" ").skip(1).collect();
+
+    return Ok(local_ip[0].trim().to_string());
+}
+
+pub fn get_peer_by_hostname(hostname: &str) ->Result<Peer, String>{
+    let peer_list = try!(peer_list().map_err(|e| e.to_string()));
+    let local_ip = try!(get_local_ip().map_err(|e| e.to_string()));
+
+    for peer in peer_list{
+        if peer.hostname == "localhost" {
+            println!("Peer name == localhost");
+            //Check if we own the ip address
+            if hostname == local_ip{
+                println!("We own that local ip: {}", local_ip);
+                debug!("Found peer: {:?}", peer);
+                let mut peer_clone = peer.clone();
+                //Swap out the IP.  hostname = "localhost" messes up down stream consumers
+                peer_clone.hostname = local_ip;
+                return Ok(peer_clone);
+            }
+        }
+        if peer.hostname == hostname {
+            debug!("Found peer: {:?}", peer);
+            return Ok(peer.clone());
+        }
+    }
+    return Err("Unable to find peer by hostname".to_string());
+}
+
 //List all peers including localhost
-pub extern fn peer_list() ->Vec<Peer>{
+pub fn peer_list() ->Result<Vec<Peer>, String>{
     let mut peers: Vec<Peer> = Vec::new();
     let mut arg_list: Vec<String>  = Vec::new();
     arg_list.push("pool".to_string());
     arg_list.push("list".to_string());
 
     let output = run_command("gluster", &arg_list, true, false);
-    let output_str = String::from_utf8(output.stdout).unwrap();
+    let output_str = try!(String::from_utf8(output.stdout).map_err(|e| e.to_string()));
 
     for line in output_str.lines(){
         if line.contains("State"){
             continue;
         }else{
             let v: Vec<&str> = line.split('\t').collect();
-            let uuid = Uuid::parse_str(v[0]).unwrap();
+            let uuid = try!(Uuid::parse_str(v[0]).map_err(|e| e.to_string()));
             let peer = Peer{
                 uuid: uuid,
-                hostname: v[1].to_string(),
+                hostname: v[1].trim().to_string(),
                 status: State::new(v[2]),
             };
             peers.push(peer);
         }
     }
-    return peers;
+    return Ok(peers);
 }
 
 //Probe a peer and prevent double probing
 pub fn peer_probe(hostname: &str)->Result<i32,String>{
-    let current_peers = peer_list();
+    let current_peers = try!(peer_list().map_err(|e| e.to_string()));
     for peer in current_peers{
         if peer.hostname == *hostname{
             //Bail instead of double probing
@@ -245,7 +311,7 @@ pub fn peer_probe(hostname: &str)->Result<i32,String>{
 
     match status.code(){
         Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+        None => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 
@@ -264,7 +330,7 @@ pub fn peer_remove(hostname: &str, force: bool)->Result<i32, String>{
 
     match status.code(){
         Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+        None => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 
@@ -281,23 +347,35 @@ fn split_and_return_field(field_number: usize, string: String) -> String{
 //Note this will panic on failure to parse u64
 pub fn translate_to_bytes(value: &str) -> Option<u64> {
     if value.ends_with("PB"){
-        let num: u64 = value.trim_right_matches("PB").parse::<u64>().unwrap();
-        return Some(num * 1024 * 1024 * 1024 * 1024 * 1024);
+        match value.trim_right_matches("PB").parse::<u64>(){
+            Ok(n) => return Some(n  * 1024 * 1024 * 1024 * 1024 * 1024),
+            Err(_) => return None,
+        };
     }else if value.ends_with("TB"){
-        let num: u64 = value.trim_right_matches("TB").parse::<u64>().unwrap();
-        return Some(num * 1024 * 1024 * 1024 * 1024);
+        match value.trim_right_matches("TB").parse::<u64>(){
+            Ok(n) => return Some(n  * 1024 * 1024 * 1024 * 1024),
+            Err(_) => return None,
+        };
     }else if value.ends_with("GB"){
-        let num: u64 = value.trim_right_matches("GB").parse::<u64>().unwrap();
-        return Some(num * 1024 * 1024 * 1024);
+        match value.trim_right_matches("GB").parse::<u64>(){
+            Ok(n) => return Some(n  * 1024 * 1024 * 1024),
+            Err(_) => return None,
+        };
     } else if value.ends_with("MB"){
-        let num: u64 = value.trim_right_matches("MB").parse::<u64>().unwrap();
-        return Some(num * 1024 * 1024);
+        match value.trim_right_matches("MB").parse::<u64>(){
+            Ok(n) => return Some(n  * 1024 * 1024),
+            Err(_) => return None,
+        };
     }else if value.ends_with("KB"){
-        let num: u64 = value.trim_right_matches("KB").parse::<u64>().unwrap();
-        return Some(num * 1024);
+        match value.trim_right_matches("KB").parse::<u64>(){
+            Ok(n) => return Some(n  * 1024),
+            Err(_) => return None,
+        };
     }else if value.ends_with("Bytes"){
-        let num: u64 = value.trim_right_matches("Bytes").parse::<u64>().unwrap();
-        return Some(num);
+        match value.trim_right_matches("Bytes").parse::<u64>(){
+            Ok(n) => return Some(n),
+            Err(_) => return None,
+        };
     }else {
         return None;
     }
@@ -312,9 +390,18 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
     let status = output.status;
 
     if !status.success(){
+        debug!("Volume info get command failed");
+        println!("Volume info get command failed");
         return None;
     }
-    let output_str = String::from_utf8(output.stdout).unwrap();
+    let output_str:String = match String::from_utf8(output.stdout){
+        Ok(n) => n,
+        Err(_) => {
+            debug!("string matching failed");
+            println!("string matching failed");
+            return None
+        },
+    };
 
     //Variables we will return in a struct
     let mut transport_type = String::new();
@@ -325,10 +412,14 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
     let mut id = Uuid::nil();
 
     if output_str.trim() == "No volumes present"{
+        debug!("No volumes present");
+        println!("No volumes present");
         return None;
     }
 
     if output_str.trim() == format!("Volume {} does not exist", volume){
+        debug!("Volume {} does not exist", volume);
+        println!("Volume {} does not exist", volume);
         return None;
     }
 
@@ -367,16 +458,23 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
                 let brick_str = split_and_return_field(1, line.to_string());
                 let brick_parts: Vec<&str> = brick_str.split(":").collect();
                 assert!(brick_parts.len() == 2, "Failed to parse bricks from gluster vol info");
-                let peer = Peer{
-                    uuid: Uuid::new_v4(),
-                    hostname: brick_parts[0].to_string(),
-                    status: State::Unknown,
+
+                let peer: Peer = match get_peer_by_hostname(brick_parts[0].trim()){
+                    Ok(p) => p,
+                    //TODO: could we insert a blank peer here?
+                    Err(_) => {
+                        debug!("Failed to get peer by hostname: {}", brick_parts[0]);
+                        println!("Failed to get peer by hostname: {}", brick_parts[0]);
+                        return None
+                    },
                 };
+                debug!("get_peer_by_hostname result: Peer: {:?}", peer);
+                println!("get_peer_by_hostname result: Peer: {:?}", peer);
                 let brick = Brick{
+                    //Should this panic if it doesn't work?
                     peer: peer,
                     path: PathBuf::from(brick_parts[1].to_string()),
                 };
-
                 bricks.push(brick);
             }
         }
@@ -396,7 +494,7 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
 //Return a list of quotas on the volume if any
 pub fn quota_list(volume: &str)->Option<Vec<Quota>>{
 /*
-  root@chris-ThinkPad-T410s:~# gluster vol quota test list
+  ThinkPad-T410s:~# gluster vol quota test list
                     Path                   Hard-limit Soft-limit   Used  Available  Soft-limit exceeded? Hard-limit exceeded?
   ---------------------------------------------------------------------------------------------------------------------------
   /                                        100.0MB       80%      0Bytes 100.0MB              No                   No
@@ -431,7 +529,11 @@ pub fn quota_list(volume: &str)->Option<Vec<Quota>>{
         return None;
     }
 
-    let output_str = String::from_utf8(output.stdout).unwrap();
+    let output_str = match String::from_utf8(output.stdout){
+        Ok(s) => s,
+        //TODO: We're eating the error here
+        Err(_) => return None,
+    };
 
     if output_str.trim() == format!("quota: No quota configured on volume {}", volume){
         return None;
@@ -451,8 +553,16 @@ pub fn quota_list(volume: &str)->Option<Vec<Quota>>{
         let parts: Vec<&str> = line.split(" ").filter(|s| !s.is_empty()).collect::<Vec<&str>>();
         //Output should match: ["/", "100.0MB", "80%", "0Bytes", "100.0MB", "No", "No"]
         if parts.len() > 3{
-            let limit = translate_to_bytes(parts[1]).unwrap();
-            let used = translate_to_bytes(parts[3]).unwrap();
+            let limit = match translate_to_bytes(parts[1]){
+                Some(v) => v,
+                //TODO:  is this sane?
+                None => 0,
+            };
+            let used = match translate_to_bytes(parts[3]){
+                Some(v) => v,
+                //TODO:  is this sane?
+                None => 0,
+            };
             let quota = Quota{
                 path: PathBuf::from(parts[0].to_string()),
                 limit: limit,
@@ -475,10 +585,9 @@ pub fn volume_enable_quotas(volume: &str)->Result<i32, String>{
 
     let output = run_command("gluster", &arg_list, true, false);
     let status = output.status;
-
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+    match status.success(){
+        true => Ok(0),
+        false => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 
@@ -492,10 +601,9 @@ pub fn volume_disable_quotas(volume: &str)->Result<i32, String>{
 
     let output = run_command("gluster", &arg_list, true, false);
     let status = output.status;
-
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+    match status.success(){
+        true => Ok(0),
+        false => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 
@@ -515,10 +623,9 @@ pub fn volume_add_quota(
 
     let output = run_command("gluster", &arg_list, true, false);
     let status = output.status;
-
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+    match status.success(){
+        true => Ok(0),
+        false => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 /*
@@ -554,10 +661,9 @@ pub fn volume_add_brick(volume: &str,
     }
     let output = run_command("gluster", &arg_list, true, true);
     let status = output.status;
-
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+    match status.success(){
+        true => Ok(0),
+        false => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 
@@ -573,9 +679,9 @@ pub fn volume_start(volume: &str, force: bool) -> Result<i32, String>{
     }
     let output = run_command("gluster", &arg_list, true, true);
     let status = output.status;
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+    match status.success(){
+        true => Ok(0),
+        false => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 
@@ -590,9 +696,9 @@ pub fn volume_stop(volume: &str, force: bool) -> Result<i32, String>{
     }
     let output = run_command("gluster", &arg_list, true, true);
     let status = output.status;
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+    match status.success(){
+        true => Ok(0),
+        false => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 
@@ -604,9 +710,9 @@ pub fn volume_delete(volume: &str) -> Result<i32, String>{
 
     let output = run_command("gluster", &arg_list, true, true);
     let status = output.status;
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+    match status.success(){
+        true => Ok(0),
+        false => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 
@@ -653,9 +759,9 @@ fn volume_create<T: ToString>(volume: &str,
     let output = run_command("gluster", &arg_list, true, true);
 
     let status = output.status;
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(String::from_utf8(output.stderr).unwrap()),
+    match status.success(){
+        true => Ok(0),
+        false => Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string()))),
     }
 }
 

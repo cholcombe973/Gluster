@@ -12,11 +12,11 @@ fn test_translate_to_bytes(){
     let tb_result = gluster::translate_to_bytes("100TB").unwrap();
     println!("tb_result: {}", tb_result);
     let pb_result = gluster::translate_to_bytes("100PB").unwrap();
-    assert!("pb_result: {}", pb_result);
+    println!("pb_result: {}", pb_result);
 }
 
 #[test]
-fn test_volume_info(){
-    let output = gluster::volume_info(&"test".to_string());
-    println!("{:?}", output);
+fn test_get_local_ip(){
+    let result = gluster::get_local_ip();
+    println!("local ip: {:?}", result);
 }

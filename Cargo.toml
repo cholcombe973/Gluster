@@ -10,3 +10,6 @@ version = "*"
 
 [dependencies.regex]
 version = "*"
+
+[dependencies.log]
+version = "*"
