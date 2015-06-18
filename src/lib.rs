@@ -290,10 +290,8 @@ pub fn get_peer_by_hostname(hostname: &str) ->Result<Peer, GlusterError>{
 
     for peer in peer_list{
         if peer.hostname == "localhost" {
-            println!("Peer name == localhost");
             //Check if we own the ip address
             if hostname == local_ip{
-                println!("We own that local ip: {}", local_ip);
                 debug!("Found peer: {:?}", peer);
                 let mut peer_clone = peer.clone();
                 //Swap out the IP.  hostname = "localhost" messes up down stream consumers
@@ -325,9 +323,18 @@ pub fn peer_list() ->Result<Vec<Peer>, GlusterError>{
         }else{
             let v: Vec<&str> = line.split('\t').collect();
             let uuid = try!(Uuid::parse_str(v[0]));
+            let mut hostname = v[1].trim().to_string();
+
+            debug!("hostname from peer list command is {:?}", &hostname);
+            //Replace localhost with the real IP.  I wish Gluster did this for us
+            if hostname == "localhost"{
+                let local_ip = try!(get_local_ip());
+                debug!("hostname is localhost.  Replacing with local ip {}", &local_ip);
+                hostname = local_ip;
+            }
             let peer = Peer{
                 uuid: uuid,
-                hostname: v[1].trim().to_string(),
+                hostname: hostname,
                 status: State::new(v[2]),
             };
             peers.push(peer);
@@ -436,14 +443,12 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
 
     if !status.success(){
         debug!("Volume info get command failed");
-        println!("Volume info get command failed");
         return None;
     }
     let output_str:String = match String::from_utf8(output.stdout){
         Ok(n) => n,
         Err(_) => {
             debug!("string matching failed");
-            println!("string matching failed");
             return None
         },
     };
@@ -515,7 +520,7 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
                     },
                 };
                 debug!("get_peer_by_hostname result: Peer: {:?}", peer);
-                println!("get_peer_by_hostname result: Peer: {:?}", peer);
+                //println!("get_peer_by_hostname result: Peer: {:?}", peer);
                 let brick = Brick{
                     //Should this panic if it doesn't work?
                     peer: peer,
