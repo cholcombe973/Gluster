@@ -222,6 +222,15 @@ impl Transport {
     }
 }
 
+fn process_output(output: std::process::Output)->Result<i32, GlusterError>{
+    let status = output.status;
+
+    match status.code(){
+        Some(v) => Ok(v),
+        None => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
+    }
+}
+
 //TODO: Change me to Result<std::process::Output, String>
 fn run_command(command: &str, arg_list: &Vec<String>, as_root: bool, script_mode: bool) -> std::process::Output{
     if as_root{
@@ -358,13 +367,7 @@ pub fn peer_probe(hostname: &str)->Result<i32, GlusterError>{
     arg_list.push("probe".to_string());
     arg_list.push(hostname.to_string());
 
-    let output = run_command("gluster", &arg_list, true, false);
-    let status = output.status;
-
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-    }
+    return process_output(run_command("gluster", &arg_list, true, false));
 }
 
 pub fn peer_remove(hostname: &str, force: bool)->Result<i32, GlusterError>{
@@ -377,13 +380,7 @@ pub fn peer_remove(hostname: &str, force: bool)->Result<i32, GlusterError>{
         arg_list.push("force".to_string());
     }
 
-    let output = run_command("gluster", &arg_list, true, false);
-    let status = output.status;
-
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-    }
+    return process_output(run_command("gluster", &arg_list, true, false));
 }
 
 fn split_and_return_field(field_number: usize, string: String) -> String{
@@ -634,16 +631,7 @@ pub fn volume_enable_quotas(volume: &str)->Result<i32, GlusterError>{
     arg_list.push(volume.to_string());
     arg_list.push("enable".to_string());
 
-    let output = run_command("gluster", &arg_list, true, false);
-    let status = output.status;
-    match status.success(){
-        true => Ok(0),
-        false => Err(
-            GlusterError::new(
-                try!(String::from_utf8(output.stderr))
-                )
-            ),
-    }
+    return process_output(run_command("gluster", &arg_list, true, false));
 }
 
 pub fn volume_disable_quotas(volume: &str)->Result<i32, GlusterError>{
@@ -654,12 +642,7 @@ pub fn volume_disable_quotas(volume: &str)->Result<i32, GlusterError>{
     arg_list.push(volume.to_string());
     arg_list.push("disable".to_string());
 
-    let output = run_command("gluster", &arg_list, true, false);
-    let status = output.status;
-    match status.success(){
-        true => Ok(0),
-        false => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-    }
+    return process_output(run_command("gluster", &arg_list, true, false));
 }
 
 pub fn volume_add_quota(
@@ -676,12 +659,7 @@ pub fn volume_add_quota(
     arg_list.push(path.to_str().unwrap().to_string());
     arg_list.push(size.to_string());
 
-    let output = run_command("gluster", &arg_list, true, false);
-    let status = output.status;
-    match status.success(){
-        true => Ok(0),
-        false => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-    }
+    return process_output(run_command("gluster", &arg_list, true, false));
 }
 /*
 pub fn volume_shrink_replicated(volume: &str,
@@ -715,12 +693,7 @@ pub fn volume_remove_brick(volume: &str,
         }
         arg_list.push("start".to_string());
 
-        let output = run_command("gluster", &arg_list, true, true);
-        let status = output.status;
-        match status.success(){
-            true => Ok(0),
-            false => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-        }
+        return process_output(run_command("gluster", &arg_list, true, true));
     }else{
         return Err(GlusterError::new("Unable to remove brick due to redundancy failure".to_string()));
     }
@@ -747,12 +720,7 @@ pub fn volume_add_brick(volume: &str,
     if force{
         arg_list.push("force".to_string());
     }
-    let output = run_command("gluster", &arg_list, true, true);
-    let status = output.status;
-    match status.success(){
-        true => Ok(0),
-        false => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-    }
+    return process_output(run_command("gluster", &arg_list, true, true));
 }
 
 pub fn volume_start(volume: &str, force: bool) -> Result<i32, GlusterError>{
@@ -765,12 +733,7 @@ pub fn volume_start(volume: &str, force: bool) -> Result<i32, GlusterError>{
     if force {
         arg_list.push("force".to_string());
     }
-    let output = run_command("gluster", &arg_list, true, true);
-    let status = output.status;
-    match status.success(){
-        true => Ok(0),
-        false => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-    }
+    return process_output(run_command("gluster", &arg_list, true, true));
 }
 
 pub fn volume_stop(volume: &str, force: bool) -> Result<i32, GlusterError>{
@@ -782,12 +745,7 @@ pub fn volume_stop(volume: &str, force: bool) -> Result<i32, GlusterError>{
     if force {
         arg_list.push("force".to_string());
     }
-    let output = run_command("gluster", &arg_list, true, true);
-    let status = output.status;
-    match status.success(){
-        true => Ok(0),
-        false => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-    }
+    return process_output(run_command("gluster", &arg_list, true, true));
 }
 
 pub fn volume_delete(volume: &str) -> Result<i32, GlusterError>{
@@ -796,12 +754,7 @@ pub fn volume_delete(volume: &str) -> Result<i32, GlusterError>{
     arg_list.push("delete".to_string());
     arg_list.push(volume.to_string());
 
-    let output = run_command("gluster", &arg_list, true, true);
-    let status = output.status;
-    match status.success(){
-        true => Ok(0),
-        false => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-    }
+    return process_output(run_command("gluster", &arg_list, true, true));
 }
 
 pub fn volume_rebalance(volume: &str){
@@ -844,13 +797,7 @@ fn volume_create<T: ToString>(volume: &str,
     if force{
         arg_list.push("force".to_string());
     }
-    let output = run_command("gluster", &arg_list, true, true);
-
-    let status = output.status;
-    match status.success(){
-        true => Ok(0),
-        false => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
-    }
+    return process_output(run_command("gluster", &arg_list, true, true));
 }
 
 
