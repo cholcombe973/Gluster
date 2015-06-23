@@ -4,6 +4,7 @@ extern crate uuid;
 extern crate log;
 use regex::Regex;
 use uuid::Uuid;
+use std::ascii::AsciiExt;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
@@ -89,9 +90,9 @@ pub enum State {
 
 impl State {
     pub fn new(name: &str)->State{
-        match name.trim() {
-            "Connected" => State::Connected,
-            "Disconnected" => State::Disconnected,
+        match name.trim().to_ascii_lowercase().as_ref() {
+            "connected" => State::Connected,
+            "disconnected" => State::Disconnected,
             _ => State::Unknown,
         }
     }
@@ -164,17 +165,17 @@ pub enum VolumeType {
 
 impl VolumeType {
     pub fn new(name: &str)->VolumeType{
-        match name.trim() {
-            "Distribute" => VolumeType::Distribute,
-            "Stripe" => VolumeType::Stripe,
-            "Replicate" => VolumeType::Replicate,
-            "Striped-Replicate" => VolumeType::StripedAndReplicate,
-            "Disperse" => VolumeType::Disperse,
+        match name.trim().to_ascii_lowercase().as_ref() {
+            "distribute" => VolumeType::Distribute,
+            "stripe" => VolumeType::Stripe,
+            "replicate" => VolumeType::Replicate,
+            "striped-replicate" => VolumeType::StripedAndReplicate,
+            "disperse" => VolumeType::Disperse,
             //"Tier" => VolumeType::Tier, //TODO: Waiting for this to become stable
-            "Distributed-Stripe" => VolumeType::DistributedAndStripe,
-            "Distributed-Replicate" => VolumeType::DistributedAndReplicate,
-            "Distributed-Striped-Replicate" => VolumeType::DistributedAndStripedAndReplicate,
-            "Distributed-Disperse" => VolumeType::DistributedAndDisperse,
+            "distributed-stripe" => VolumeType::DistributedAndStripe,
+            "distributed-replicate" => VolumeType::DistributedAndReplicate,
+            "distributed-striped-replicate" => VolumeType::DistributedAndStripedAndReplicate,
+            "distributed-disperse" => VolumeType::DistributedAndDisperse,
             _ => VolumeType::Replicate,
         }
     }
@@ -206,7 +207,7 @@ pub struct Volume {
 
 impl Transport {
     fn new(name: &str)->Transport{
-        match name.trim() {
+        match name.trim().to_ascii_lowercase().as_ref() {
             "tcp" => Transport::Tcp,
             "tcp,rdma" => Transport::TcpAndRdma,
             "rdma" => Transport::Rdma,
