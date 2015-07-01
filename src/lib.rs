@@ -431,6 +431,36 @@ pub fn translate_to_bytes(value: &str) -> Option<u64> {
     }
 }
 
+//Lists all available volume names
+pub fn volume_list()->Option<Vec<String>>{
+    let mut arg_list: Vec<String>  = Vec::new();
+    arg_list.push("volume".to_string());
+    arg_list.push("list".to_string());
+    let output = run_command("gluster", &arg_list, true, false);
+    let status = output.status;
+
+    if !status.success(){
+        debug!("Volume list get command failed");
+        return None;
+    }
+    let output_str:String = match String::from_utf8(output.stdout){
+        Ok(n) => n,
+        Err(_) => {
+            debug!("Volume list output transformation to utf8 failed");
+            return None
+        },
+    };
+    let mut volume_names: Vec<String> = Vec::new();
+    for line in output_str.lines(){
+        if line.is_empty(){
+            //Skip any blank lines in the output
+            continue;
+        }
+        volume_names.push(line.trim().to_string());
+    }
+    return Some(volume_names);
+}
+
 pub fn volume_info(volume: &str) -> Option<Volume> {
     let mut arg_list: Vec<String>  = Vec::new();
     arg_list.push("volume".to_string());
@@ -446,7 +476,7 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
     let output_str:String = match String::from_utf8(output.stdout){
         Ok(n) => n,
         Err(_) => {
-            debug!("string matching failed");
+            debug!("Volume info output transformation to utf8 failed");
             return None
         },
     };
