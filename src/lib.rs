@@ -656,18 +656,17 @@ pub fn quota_list(volume: &str)->Option<Vec<Quota>>{
 
 pub fn volume_enable_quotas(volume: &str)->Result<i32, GlusterError>{
     let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("gluster".to_string());
     arg_list.push("volume".to_string());
     arg_list.push("quota".to_string());
     arg_list.push(volume.to_string());
     arg_list.push("enable".to_string());
+    println!("arg_list: {:?}", arg_list);
 
     return process_output(run_command("gluster", &arg_list, true, false));
 }
 
 pub fn volume_disable_quotas(volume: &str)->Result<i32, GlusterError>{
     let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("gluster".to_string());
     arg_list.push("volume".to_string());
     arg_list.push("quota".to_string());
     arg_list.push(volume.to_string());
@@ -682,7 +681,6 @@ pub fn volume_add_quota(
     size: u64)->Result<i32,GlusterError>{
 
     let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("gluster".to_string());
     arg_list.push("volume".to_string());
     arg_list.push("quota".to_string());
     arg_list.push(volume.to_string());
