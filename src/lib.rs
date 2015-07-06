@@ -660,7 +660,6 @@ pub fn volume_enable_quotas(volume: &str)->Result<i32, GlusterError>{
     arg_list.push("quota".to_string());
     arg_list.push(volume.to_string());
     arg_list.push("enable".to_string());
-    println!("arg_list: {:?}", arg_list);
 
     return process_output(run_command("gluster", &arg_list, true, false));
 }
