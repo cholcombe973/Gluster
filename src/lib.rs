@@ -226,9 +226,14 @@ impl Transport {
 fn process_output(output: std::process::Output)->Result<i32, GlusterError>{
     let status = output.status;
 
-    match status.code(){
-        Some(v) => Ok(v),
-        None => Err(GlusterError::new(try!(String::from_utf8(output.stderr)))),
+    if status.success(){
+        return Ok(0);
+    }else{
+        return Err(
+            GlusterError::new(
+                try!(String::from_utf8(output.stderr))
+            )
+        );
     }
 }
 
