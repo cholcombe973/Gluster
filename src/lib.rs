@@ -11,6 +11,50 @@ use std::fmt;
 use std::io;
 use std::path::PathBuf;
 
+#[cfg(test)]
+mod tests{
+    use uuid::Uuid;
+    #[test]
+    fn test_parse_peer_status() {
+        let test_result = vec![
+            super::Peer{
+               uuid: Uuid::parse_str("afbd338e-881b-4557-8764-52e259885ca3").unwrap(),
+               hostname: "10.0.3.207".to_string(),
+               status: super::State::PeerInCluster,
+            },
+            super::Peer{
+               uuid: Uuid::parse_str("fa3b031a-c4ef-43c5-892d-4b909bc5cd5d").unwrap(),
+               hostname: "10.0.3.208".to_string(),
+               status: super::State::PeerInCluster,
+            },
+            super::Peer{
+               uuid: Uuid::parse_str("5f45e89a-23c1-41dd-b0cd-fd9cf37f1520").unwrap(),
+               hostname: "10.0.3.209".to_string(),
+               status: super::State::PeerInCluster,
+            }];
+        let test_line = "Number of Peers: 3 \
+                                            \
+                        Hostname: 10.0.3.207 \
+                        Uuid: afbd338e-881b-4557-8764-52e259885ca3 \
+                        State: Peer in Cluster (Connected) \
+
+                        Hostname: 10.0.3.208 \
+                        Uuid: fa3b031a-c4ef-43c5-892d-4b909bc5cd5d \
+                        State: Peer in Cluster (Connected) \
+
+                        Hostname: 10.0.3.209 \
+                        Uuid: 5f45e89a-23c1-41dd-b0cd-fd9cf37f1520 \
+                        State: Peer in Cluster (Connected)".to_string();
+
+        //Expect a 3 peer result
+        let result = super::parse_peer_status(&test_line);
+        println!("Result: {:?}", result);
+        assert!(result.is_ok());
+
+        let result_unwrapped = result.unwrap();
+        assert_eq!(test_result, result_unwrapped);
+    }
+}
 //Custom error handling for the library
 #[derive(Debug)]
 pub enum GlusterError{
@@ -86,6 +130,18 @@ pub enum State {
     Connected,
     Disconnected,
     Unknown,
+    
+    EstablishingConnection,
+    ProbeSentToPeer,
+    ProbeReceivedFromPeer,
+    PeerInCluster,
+    AcceptedPeerRequest,
+    SentAndReceivedPeerRequest,
+    PeerRejected,
+    PeerDetachInProgress,
+    ConnectedToPeer,
+    PeerIsConnectedAndAccepted,
+    InvalidState,
 }
 
 impl State {
@@ -93,6 +149,17 @@ impl State {
         match name.trim().to_ascii_lowercase().as_ref() {
             "connected" => State::Connected,
             "disconnected" => State::Disconnected,
+            "establishing connection" => State::EstablishingConnection,
+            "probe sent to peer" => State::ProbeSentToPeer,
+            "probe received from peer" => State::ProbeReceivedFromPeer,
+            "peer in cluster" => State::PeerInCluster,
+            "accepted peer request" => State::AcceptedPeerRequest,
+            "sent and received peer request" => State::SentAndReceivedPeerRequest,
+            "peer rejected" => State::PeerRejected,
+            "peer detach in progress" => State::PeerDetachInProgress,
+            "connected to peer" => State::ConnectedToPeer,
+            "peer is connected and accepted" => State::PeerIsConnectedAndAccepted,
+            "invalid state" => State::InvalidState,
             _ => State::Unknown,
         }
     }
@@ -101,6 +168,17 @@ impl State {
             State::Connected => "Connected".to_string(),
             State::Disconnected => "Disconnected".to_string(),
             State::Unknown => "Unknown".to_string(),
+            State::EstablishingConnection => "establishing connection".to_string(),
+            State::ProbeSentToPeer =>"probe sent to peer".to_string(),
+            State::ProbeReceivedFromPeer =>"probe received from peer".to_string(),
+            State::PeerInCluster =>"peer in cluster".to_string(),
+            State::AcceptedPeerRequest =>"accepted peer request".to_string(),
+            State::SentAndReceivedPeerRequest =>"sent and received peer request".to_string(),
+            State::PeerRejected =>"peer rejected".to_string(),
+            State::PeerDetachInProgress =>"peer detach in progress".to_string(),
+            State::ConnectedToPeer =>"connected to peer".to_string(),
+            State::PeerIsConnectedAndAccepted =>"peer is connected and accepted".to_string(),
+            State::InvalidState => "invalid state".to_string(),
         }
     }
 }
@@ -111,7 +189,7 @@ pub struct Quota{
     pub used: u64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Peer {
    pub uuid: Uuid,
    pub hostname: String,
@@ -320,6 +398,51 @@ pub fn get_peer_by_hostname(hostname: &str) ->Result<Peer, GlusterError>{
         }
     }
     return Err(GlusterError::new(format!("Unable to find peer by hostname: {}", hostname)));
+}
+
+fn parse_peer_status(line: &String)-> Result<Vec<Peer>, GlusterError>{
+    let mut peers: Vec<Peer> = Vec::new();
+
+    //TODO: It's either this or some kinda crazy looping or batching
+    let peer_regex = Regex::new(r"Hostname:\s+(?P<hostname>[a-zA-Z0-9.]+)\s+Uuid:\s+(?P<uuid>\w+-\w+-\w+-\w+-\w+)\s+State:\s+(?P<state_detail>[a-zA-z ]+)\s+\((?P<state>\w+)\)").unwrap();
+    for cap in peer_regex.captures_iter(line){
+        let hostname = try!(cap.name("hostname").ok_or(
+            GlusterError::new(format!("Invalid hostname for peer: {}", line)))
+        );
+        let uuid = try!(cap.name("uuid").ok_or(
+            GlusterError::new(format!("Invalid uuid for peer: {}", line)))
+        );
+        let uuid_parsed = try!(Uuid::parse_str(uuid));
+        let state_details = try!(cap.name("state_detail").ok_or(
+            GlusterError::new(format!("Invalid state for peer: {}", line)))
+        );
+
+        let peer = Peer{
+            uuid: uuid_parsed,
+            hostname: hostname.to_string(),
+            status: State::new(state_details),
+        };
+
+        peers.push(peer);
+    }
+    return Ok(peers);
+}
+
+pub fn peer_status() ->Result<Vec<Peer>, GlusterError>{
+    let mut arg_list: Vec<String>  = Vec::new();
+    arg_list.push("peer".to_string());
+    arg_list.push("status".to_string());
+
+    let output = run_command("gluster", &arg_list, true, false);
+    let output_str = try!(String::from_utf8(output.stdout));
+    /*
+    Number of Peers: 1
+    Hostname: 10.0.3.207
+    Uuid: afbd338e-881b-4557-8764-52e259885ca3
+    State: Peer in Cluster (Connected)
+    */
+
+    return parse_peer_status(&output_str);
 }
 
 //List all peers including localhost
