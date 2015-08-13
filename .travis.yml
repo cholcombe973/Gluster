@@ -2,6 +2,6 @@ before_script:
   - sudo apt-add-repository -y ppa:gluster/glusterfs-3.7
   - sudo apt-get update -q
   - sudo apt-get -y install nfs-common glusterfs-server xfsprogs
-  - sudo gluster vol create test $(ifconfig eth0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'):/tmp/brick0 force --mode=script
+  - sudo gluster vol create test $(hostname):/tmp/brick0 force --mode=script
   - sudo gluster vol start test
 language: rust
