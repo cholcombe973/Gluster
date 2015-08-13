@@ -6,11 +6,12 @@ authors = ["Chris Holcombe <xfactor973@gmail.com>"]
 repository = "https://github.com/cholcombe973/Gluster"
 license = "MIT"
 
-[dependencies.uuid]
-version = "*"
+[dependencies]
+byteorder = "*"
+log = "*"
+regex = "*"
+unix_socket = "*"
+uuid = "*"
 
-[dependencies.regex]
-version = "*"
-
-[dependencies.log]
-version = "*"
+[dependencies.xdr]
+git = "https://github.com/savant2212/xdr-rs"

@@ -1,19 +1,53 @@
+extern crate byteorder;
 extern crate regex;
+extern crate unix_socket;
 extern crate uuid;
 #[macro_use]
 extern crate log;
+extern crate xdr;
 use regex::Regex;
 use uuid::Uuid;
+
 use std::ascii::AsciiExt;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
+use std::fs::File;
 use std::io;
+use std::io::Cursor;
+use std::io::prelude::*;
+use std::net::Ipv4Addr;
 use std::path::PathBuf;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use unix_socket::UnixStream;
+use xdr::xdr::{XdrWriter};
+
+const RPC_VERSION: u32 = 2;
+
+const CALL: i32 = 0;
+const REPLY: i32 = 1;
+const MSG_ACCEPTED: i32 = 0;
+const MSG_DENIED: i32 = 1;
+
+const SUCCESS: i32 = 0;                            // RPC executed successfully
+const PROG_UNAVAIL: i32  = 1;                      // remote hasn't exported program
+const PROG_MISMATCH: i32 = 2;                      // remote can't support version #
+const PROC_UNAVAIL: i32  = 3;                      // program can't support procedure
+const GARBAGE_ARGS: i32  = 4;                      // procedure can't decode params
+
+const RPC_MISMATCH: i32 = 0;                       // RPC version number != 2
+const AUTH_ERROR: i32 = 1;                         // remote can't authenticate caller
 
 #[cfg(test)]
 mod tests{
+    extern crate unix_socket;
+    use std::io::Cursor;
+    use std::path::Path;
+    use unix_socket::UnixStream;
     use uuid::Uuid;
+    use super::Pack;
+    use super::UnPack;
+
     #[test]
     fn test_parse_peer_status() {
         let test_result = vec![
@@ -54,13 +88,674 @@ mod tests{
         let result_unwrapped = result.unwrap();
         assert_eq!(test_result, result_unwrapped);
     }
+
+    #[test]
+    //Needs a running Gluster server to test against. Probably needs to be moved to function testing
+    fn list_peers(){
+        let mut xid = 1;
+        let prog = 1238463;
+        let vers = 2;
+        let verf = super::GlusterAuth{
+            flavor: 0,
+            stuff: "".to_string(),
+        };
+        let verf_bytes = verf.pack();
+        let cred_flavor = 390039;
+        let creds = super::pack_gluster_v2_cred(cred_flavor);
+
+        let mut call_bytes = super::pack_callheader(
+            xid, prog, vers, super::GlusterCliCommand::GlusterCliListFriends, creds, verf_bytes);
+
+        let peer_request = super::GlusterCliPeerListRequest{
+                flags: 2,
+                dict: "".to_string()
+        };
+
+        let peer_bytes = peer_request.pack();
+        for byte in peer_bytes{
+            call_bytes.push(byte);
+        }
+
+        let addr = Path::new("/var/run/glusterd.socket");
+        println!("Connecting to /var/run/glusterd.socket");
+        let mut sock = UnixStream::connect(&addr).unwrap();
+
+        let result = super::sendrecord(&mut sock, &call_bytes);
+        println!("Result: {:?}", result);
+
+        let mut reply_bytes = super::recvrecord(&mut sock).unwrap();
+        let mut cursor = Cursor::new(&mut reply_bytes[..]);
+        let reply = super::unpack_replyheader(&mut cursor).unwrap();
+        println!("Reply header parsed result: {:?}", reply);
+        let peer_list = super::GlusterCliPeerListResponse::unpack(&mut cursor).unwrap();
+        println!("Peer list: {:?}", peer_list);
+    }
 }
+//#define CLI_DEFAULT_CMD_TIMEOUT              120  // 2 minutes
+pub trait Pack{
+    fn pack(&self) -> Vec<u8>;
+}
+
+pub trait UnPack{
+    fn unpack<T: Read>(&mut T) -> Result<Self, GlusterError>;
+}
+
+fn unpack_string<T: Read>(data: &mut T, size: u32)->Result<String,GlusterError>{
+    let mut buffer: Vec<u8> = Vec::with_capacity(size as usize);
+    for _ in 0..size {
+        let b = try!(data.read_u8());
+        buffer.push(b);
+    }
+    let s = try!(String::from_utf8(buffer));
+    return Ok(s);
+}
+
+fn pack_string(s: &String)->Vec<u8>{
+    let mut buffer: Vec<u8> = Vec::new();
+
+    let bytes = s.clone().into_bytes();
+    let bytes_len = bytes.len();
+    let pad = bytes_len % 4;
+
+    buffer.write_u32::<BigEndian>(bytes_len as u32).unwrap();
+
+    for byte in bytes{
+        buffer.write_u8(byte).unwrap();
+    }
+
+    //Padding
+    for _ in 0..pad{
+        buffer.write_u8(0).unwrap();
+    }
+
+    return buffer;
+}
+
+#[derive(Debug,Clone)]
+enum AuthFlavor{
+    AuthNull = 0,
+    AuthUnix = 1,
+    AuthShort = 2,
+    AuthDes = 3,
+}
+
+impl AuthFlavor{
+    pub fn new(flavor: i32)->AuthFlavor{
+        match flavor{
+            0 => AuthFlavor::AuthNull,
+            1 => AuthFlavor::AuthUnix,
+            2 => AuthFlavor::AuthShort,
+            3 => AuthFlavor::AuthDes,
+            _ => AuthFlavor::AuthNull,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliRequest{
+    dict: String
+}
+
+impl Pack for GlusterCliRequest{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.dict.clone());
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliRequest{
+    //Expects a cursor so calls can be chained
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliRequest, GlusterError>{
+        let size = try!(data.read_u32::<BigEndian>());
+        let dict = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliRequest{
+            dict: dict
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliResponse{
+    op_ret: i32,
+    op_errno: i32,
+    op_errstr: String,
+    dict: String
+}
+
+impl Pack for GlusterCliResponse{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.op_ret);
+        wr.pack(self.op_errno);
+        wr.pack(self.op_errstr.clone());
+        wr.pack(self.dict.clone());
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliResponse{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliResponse, GlusterError>{
+        let op_ret = try!(data.read_i32::<BigEndian>());
+        let op_errno = try!(data.read_i32::<BigEndian>());
+
+        let size = try!(data.read_u32::<BigEndian>());
+        let op_errstr = try!(unpack_string(data, size));
+
+        let size = try!(data.read_u32::<BigEndian>());
+        let dict = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliResponse{
+            op_ret: op_ret,
+            op_errno: op_errno,
+            op_errstr: op_errstr,
+            dict: dict
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliPeerListRequest{
+    flags: i32,
+    dict: String,
+}
+
+
+
+impl Pack for GlusterCliPeerListRequest{
+    fn pack(&self)->Vec<u8>{
+        //XDRlib has a bug where it doesn't pad Strings correctly that are size 0
+        let mut buffer: Vec<u8> = Vec::new();
+        buffer.write_i32::<BigEndian>(self.flags).unwrap();
+        let string_buffer = pack_string(&self.dict);
+        for byte in string_buffer{
+            buffer.push(byte);
+        }
+        return buffer;
+    }
+}
+
+impl UnPack for GlusterCliPeerListRequest{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliPeerListRequest, GlusterError>{
+        let flags = try!(data.read_i32::<BigEndian>());
+
+        let size = try!(data.read_u32::<BigEndian>());
+        let dict = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliPeerListRequest{
+            flags: flags,
+            dict: dict,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliPeerListResponse{
+    op_ret: i32,
+    op_errno: i32,
+    friends: String,
+}
+
+impl Pack for GlusterCliPeerListResponse{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+
+        wr.pack(self.op_ret);
+        wr.pack(self.op_errno);
+        wr.pack(self.friends.clone());
+
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliPeerListResponse{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliPeerListResponse, GlusterError>{
+        let op_ret = try!(data.read_i32::<BigEndian>());
+        let op_errno = try!(data.read_i32::<BigEndian>());
+
+        let size = try!(data.read_u32::<BigEndian>());
+        println!("Peer list size: {}", size);
+        let friends = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliPeerListResponse{
+            op_ret: op_ret,
+            op_errno: op_errno,
+            friends: friends,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliFsmLogRequest{
+    name: String,
+}
+
+impl Pack for GlusterCliFsmLogRequest{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.name.clone());
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliFsmLogRequest{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliFsmLogRequest, GlusterError>{
+        let size = try!(data.read_u32::<BigEndian>());
+        let name = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliFsmLogRequest{
+            name: name
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliFsmLogReponse{
+    op_ret: i32,
+    op_errno: i32,
+    op_errstr: String,
+    fsm_log: String,
+}
+
+impl Pack for GlusterCliFsmLogReponse{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.op_ret);
+        wr.pack(self.op_errno);
+        wr.pack(self.op_errstr.clone());
+        wr.pack(self.fsm_log.clone());
+        return wr.into_buffer();
+    }
+}
+impl UnPack for GlusterCliFsmLogReponse{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliFsmLogReponse, GlusterError>{
+        let op_ret = try!(data.read_i32::<BigEndian>());
+        let op_errno = try!(data.read_i32::<BigEndian>());
+
+        let size = try!(data.read_u32::<BigEndian>());
+        let op_errstr = try!(unpack_string(data, size));
+
+        let size = try!(data.read_u32::<BigEndian>());
+        let fsm_log = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliFsmLogReponse{
+            op_ret: op_ret,
+            op_errno: op_errno,
+            op_errstr: op_errstr,
+            fsm_log: fsm_log,
+        })
+    }
+}
+
+
+#[derive(Debug)]
+struct GlusterCliGetwdRequest{
+    unused:i32,
+}
+
+impl Pack for GlusterCliGetwdRequest{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.unused);
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliGetwdRequest{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliGetwdRequest, GlusterError>{
+        let unused = try!(data.read_i32::<BigEndian>());
+        return Ok(GlusterCliGetwdRequest{
+            unused: unused
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliGetwdResponse{
+    op_ret: i32,
+    op_errno: i32,
+    wd: String
+}
+
+impl Pack for GlusterCliGetwdResponse{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.op_ret);
+        wr.pack(self.op_errno);
+        wr.pack(self.wd.clone());
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliGetwdResponse{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliGetwdResponse, GlusterError>{
+        let op_ret = try!(data.read_i32::<BigEndian>());
+        let op_errno = try!(data.read_i32::<BigEndian>());
+
+        let size = try!(data.read_u32::<BigEndian>());
+        let wd = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliGetwdResponse{
+            op_ret: op_ret,
+            op_errno: op_errno,
+            wd: wd,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliMountRequest{
+    label: String,
+    dict: String,
+}
+
+impl Pack for GlusterCliMountRequest{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.label.clone());
+        wr.pack(self.dict.clone());
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliMountRequest{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliMountRequest, GlusterError>{
+        let size = try!(data.read_u32::<BigEndian>());
+        let label = try!(unpack_string(data, size));
+
+        let size = try!(data.read_u32::<BigEndian>());
+        let dict = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliMountRequest{
+            label: label,
+            dict: dict,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliMountResponse{
+    op_ret: i32,
+    op_errno: i32,
+    path: String,
+}
+
+impl Pack for GlusterCliMountResponse{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.op_ret);
+        wr.pack(self.op_errno);
+        wr.pack(self.path.clone());
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliMountResponse{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliMountResponse, GlusterError>{
+        let op_ret = try!(data.read_i32::<BigEndian>());
+        let op_errno = try!(data.read_i32::<BigEndian>());
+
+        let size = try!(data.read_u32::<BigEndian>());
+        let path = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliMountResponse{
+            op_ret: op_ret,
+            op_errno: op_errno,
+            path: path,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliUmountRequest{
+    lazy: i32,
+    path: String,
+}
+
+impl Pack for GlusterCliUmountRequest{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.lazy);
+        wr.pack(self.path.clone());
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliUmountRequest{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliUmountRequest, GlusterError>{
+        let lazy = try!(data.read_i32::<BigEndian>());
+
+        let size = try!(data.read_u32::<BigEndian>());
+        let path = try!(unpack_string(data, size));
+
+        return Ok(GlusterCliUmountRequest{
+            lazy: lazy,
+            path: path
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterCliUmountResponse{
+    op_ret:i32,
+    op_errno: i32,
+}
+
+impl Pack for GlusterCliUmountResponse{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.op_ret);
+        wr.pack(self.op_errno);
+        return wr.into_buffer();
+    }
+}
+
+impl UnPack for GlusterCliUmountResponse{
+    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliUmountResponse, GlusterError>{
+        let op_ret = try!(data.read_i32::<BigEndian>());
+        let op_errno = try!(data.read_i32::<BigEndian>());
+
+        return Ok(GlusterCliUmountResponse{
+            op_ret: op_ret,
+            op_errno: op_errno,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct GlusterAuth{
+    flavor: i32,
+    stuff: String
+}
+
+#[derive(Debug)]
+struct GlusterCred{
+    flavor: i32,
+}
+
+impl Pack for GlusterAuth{
+    fn pack(&self)->Vec<u8>{
+        let mut wr = XdrWriter::new();
+        wr.pack(self.flavor);
+        wr.pack(self.stuff.clone());
+        return wr.into_buffer();
+    }
+}
+
+fn pack_gluster_v2_cred(flavor: i32)->Vec<u8>{
+    let mut wr = XdrWriter::new();
+    //let flavor: i32 = 390039
+    wr.pack(flavor);
+    wr.pack(24); // Length = 24
+    wr.pack(0);  // Padding?
+    wr.pack(0);
+    wr.pack(0);
+    wr.pack(0);
+    wr.pack(4);
+    return wr.into_buffer();
+}
+
+fn pack_callheader(xid: u32, prog: i32, vers: u32, proc_num: GlusterCliCommand, cred_flavor: Vec<u8>, verf: Vec<u8>)->Vec<u8>{
+    let mut wr = XdrWriter::new();
+    let call: i32 = 0;
+    let rpc_version: u32 = 2;
+
+    wr.pack(xid);
+    wr.pack(call); //CALL=0
+    wr.pack(rpc_version);
+    wr.pack(prog); // 1238463
+    wr.pack(vers); // 2
+    wr.pack(proc_num as u32); // 3
+    let mut buffer = wr.into_buffer();
+
+    for byte in cred_flavor{
+        buffer.push(byte);
+    }
+    for byte in verf{
+        buffer.push(byte);
+    }
+    // Caller must add procedure-specific part of call
+    return buffer;
+}
+
+//Takes a generic which will most likely be a Cursor
+//That way the next call can also use the last cursor position
+fn unpack_replyheader<T: Read>(data: &mut T)->Result<(u32, GlusterAuth), String>{
+    let xid = data.read_u32::<BigEndian>().unwrap();
+    println!("reply xid {}", xid);
+    let msg_type = data.read_i32::<BigEndian>().unwrap();
+    println!("reply msg_type {}", xid);
+
+    if msg_type != REPLY{
+        //Invalid REPLY
+        return Err(format!("Invalid reply with msg_type: {}", msg_type));
+    }
+
+    let stat = data.read_i32::<BigEndian>().unwrap();
+    println!("reply stat {}", xid);
+    if stat == MSG_DENIED {
+        let reason = data.read_i32::<BigEndian>().unwrap();
+        if reason == RPC_MISMATCH{
+            let low = data.read_u32::<BigEndian>().unwrap();
+            let high = data.read_u32::<BigEndian>().unwrap();
+            return Err(format!("MSG_DENIED: RPC_MISMATCH low: {} high: {}", low, high));
+        }
+        if reason == AUTH_ERROR {
+            let err = data.read_u32::<BigEndian>().unwrap();
+            return Err(format!("MSG_DENIED: AUTH_ERROR {}", err));
+        }
+        return Err(format!("MSG_DENIED: {}", reason));
+    }
+    if stat == MSG_ACCEPTED{
+        let auth_flavor = data.read_i32::<BigEndian>().unwrap();
+
+        let size = data.read_u32::<BigEndian>().unwrap();
+        let stuff = unpack_string(data, size).unwrap();
+
+        let accept_message = data.read_i32::<BigEndian>().unwrap();
+        //Parse auth_flavor into the enum
+        let rpc_auth = GlusterAuth{
+            flavor: auth_flavor,
+            stuff: stuff,
+        };
+        match accept_message{
+            PROG_UNAVAIL => {
+                return Err("call failed PROG_UNAVAIL".to_string());
+            },
+            PROG_MISMATCH => {
+                let low = data.read_u32::<BigEndian>().unwrap();
+                let high = data.read_u32::<BigEndian>().unwrap();
+                return Err(format!("Call failed: PROG_MISMATCH low: {} high: {}", low, high));
+            }
+            PROC_UNAVAIL => {
+                return Err("call failed PROC_UNAVAIL".to_string());
+            },
+            GARBAGE_ARGS => {
+                return Err("call failed GARBAGE_ARGS".to_string());
+            },
+            SUCCESS => {
+                return Ok((xid, rpc_auth));
+            }
+            _ => {
+                return Err(format!("Call failed: {}", accept_message));
+            }
+        }
+    }else{
+        return Err(format!("MSG neither denied or accepted: {}", stat));
+    }
+}
+
+
+/*
+fn create_quota_dict(gfid, volume_uuid, default_soft_limit, quota_command){
+    data = "gfid\x00" + gfid + "\x00volume-uuid\x00" + volume_uuid + \
+           "\x00default-soft-limit\x00" + default_soft_limit + "\x00" + \
+           default_soft_limit + "%\x00type\x00" + quota_command
+    return data
+}
+*/
+
+#[derive(Debug)]
+pub enum GlusterCliCommand {
+    GlusterCliNull = 0,
+    GlusterCliProbe = 1,
+    GlusterCliDeprobe = 2,
+    GlusterCliListFriends = 3,
+    GlusterCliCreateVolume = 4,
+    GlusterCliGetVolume = 5,
+    GlusterCliGetNextVolume = 6,
+    GlusterCliDeleteVolume = 7,
+    GlusterCliStartVolume = 8,
+    GlusterCliStopVolume = 9,
+    GlusterCliRenameVolume = 10,
+    GlusterCliDefragVolume = 11,
+    GlusterCliSetVolume = 12,
+    GlusterCliAddBrick = 13,
+    GlusterCliRemoveBrick = 14,
+    GlusterCliReplaceBrick = 15,
+    GlusterCliLogRotate = 16,
+    GlusterCliGetspec = 17,
+    GlusterCliPmapPortbybrick = 18,
+    GlusterCliSyncVolume = 19,
+    GlusterCliResetVolume = 20,
+    GlusterCliFsmLog = 21,
+    GlusterCliGsyncSet = 22,
+    GlusterCliProfileVolume = 23,
+    GlusterCliQuota = 24,
+    GlusterCliTopVolume = 25,
+    GlusterCliGetwd = 26,
+    GlusterCliStatusVolume = 27,
+    GlusterCliStatusAll = 28,
+    GlusterCliMount = 29,
+    GlusterCliUmount = 30,
+    GlusterCliHealVolume = 31,
+    GlusterCliStatedumpVolume = 32,
+    GlusterCliListVolume = 33,
+    GlusterCliClrlocksVolume = 34,
+    GlusterCliUuidReset = 35,
+    GlusterCliUuidGet = 36,
+    GlusterCliCopyFile = 37,
+    GlusterCliSysExec = 38,
+    GlusterCliSnap = 39,
+    GlusterCliBarrierVolume = 40,
+    GlusterCliGetVolOpt = 41,
+    GlusterCliGanesha = 42,
+    GlusterCliBitrot = 43,
+    GlusterCliAttachTier = 44,
+    GlusterCliDetachTier = 45,
+    GlusterCliMaxvalue = 46,
+}
+
 //Custom error handling for the library
 #[derive(Debug)]
 pub enum GlusterError{
     IoError(io::Error),
     FromUtf8Error(std::string::FromUtf8Error),
     ParseError(uuid::ParseError),
+    AddrParseError(String),
+    ByteOrder(byteorder::Error),
+    NoVolumesPresent,
 }
 
 impl GlusterError{
@@ -76,16 +771,9 @@ impl GlusterError{
             GlusterError::FromUtf8Error(ref err) => err.description().to_string(),
             //TODO fix this
             GlusterError::ParseError(_) => "Parse error".to_string(),
-        }
-    }
-}
-
-impl fmt::Display for GlusterError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            GlusterError::IoError(ref err) => err.fmt(f),
-            GlusterError::FromUtf8Error(ref err) => err.fmt(f),
-            GlusterError::ParseError(ref err) => err.fmt(f),
+            GlusterError::AddrParseError(_) => "IP Address parsing error".to_string(),
+            GlusterError::ByteOrder(ref err) => err.description().to_string(),
+            GlusterError::NoVolumesPresent => "No volumes present".to_string(),
         }
     }
 }
@@ -105,6 +793,18 @@ impl From<std::string::FromUtf8Error> for GlusterError {
 impl From<uuid::ParseError> for GlusterError {
     fn from(err: uuid::ParseError) -> GlusterError {
         GlusterError::ParseError(err)
+    }
+}
+
+impl From<std::net::AddrParseError> for GlusterError {
+    fn from(_: std::net::AddrParseError) -> GlusterError {
+        GlusterError::AddrParseError("IP Address parsing error".to_string())
+    }
+}
+
+impl From<byteorder::Error> for GlusterError {
+    fn from(err: byteorder::Error) -> GlusterError {
+        GlusterError::ByteOrder(err)
     }
 }
 
@@ -130,7 +830,7 @@ pub enum State {
     Connected,
     Disconnected,
     Unknown,
-    
+
     EstablishingConnection,
     ProbeSentToPeer,
     ProbeReceivedFromPeer,
@@ -192,12 +892,17 @@ pub struct Quota{
 #[derive(Clone, Eq, PartialEq)]
 pub struct Peer {
    pub uuid: Uuid,
+   //TODO: Lets stay with ip addresses.
    pub hostname: String,
    pub status: State,
 }
+
 impl fmt::Debug for Peer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "UUID: {} Hostname: {} Status: {}", self.uuid.to_hyphenated_string(), self.hostname, self.status.to_string())
+        write!(f, "UUID: {} Hostname: {} Status: {}",
+            self.uuid.to_hyphenated_string(),
+            self.hostname,
+            self.status.to_string())
     }
 }
 
@@ -343,8 +1048,110 @@ fn run_command(command: &str, arg_list: &Vec<String>, as_root: bool, script_mode
     }
 }
 
+#[cfg(target_endian="little")]
+fn htonl(num: u32)->u32{
+    return 0;
+}
+
+#[cfg(target_endian="big")]
+fn htonl(num: u32)->u32{
+    return 0;
+}
+
+fn send_fragment<T: Write>(socket: &mut T, last: bool, fragment: &Vec<u8>)->Result<usize,String>{
+    let mut header_buffer: Vec<u8> = Vec::new();
+    let length: u32 = fragment.len() as u32;
+
+    let mut header = length & 0x7fffffff;
+
+    if last {
+        header = length | 0x80000000;
+        println!("length: {}", length);
+    }
+    //This assumes we're on a little endian machine.  Needs to be endian generic
+    //let header = (x>>24 & 0xff) + (x>>16 & 0xff) +
+    //          (x>>8 & 0xff) + (x & 0xff);
+    //Might be a better way to do this like writing to the socket directly
+    //fragment.insert(0, header as u8);
+    header_buffer.write_u32::<BigEndian>(header as u32).unwrap();
+
+    println!("Sending header");
+    print_fragment(&header_buffer);
+
+    let mut bytes_written = try!(socket.write(&header_buffer).map_err(|e| e.to_string()));
+
+    println!("Fragment length: {}", fragment.len());
+    println!("Sending fragment");
+
+    print_fragment(&fragment);
+
+    bytes_written += try!(socket.write(fragment).map_err(|e| e.to_string()));
+    socket.flush().unwrap();
+    return Ok(bytes_written);
+}
+
+fn sendrecord(sock: &mut UnixStream, record: &Vec<u8>)->Result<usize,String>{
+    let send_size = try!(send_fragment(sock, true, &record));
+    return Ok(send_size);
+}
+
+fn print_fragment(frag: &Vec<u8>){
+    for chunk in frag.chunks(4){
+        for c in chunk{
+            print!("{:02x}:", c);
+        }
+        print!(" ");
+    }
+    println!("");
+}
+
+/*
+    Uses a generic trait so that this function can be unit tested
+    by replaying captured data.
+ */
+fn recv_fragment<T: Read>(socket: &mut T)-> Result<(bool, Vec<u8>), String>{
+    //Read at most 4 bytes
+    let mut buffer: Vec<u8> = Vec::new();
+
+    try!(socket.by_ref().take(4).read_to_end(&mut buffer).map_err(|e| e.to_string()));
+
+    if buffer.len() < 4{
+        return Err("EOF Error".to_string());
+    }
+    let mut buf = Cursor::new(&buffer[..]);
+    let header = buf.read_u32::<BigEndian>().unwrap();
+
+    let last = (header & 0x80000000) != 0;
+    println!("Last Fragment: {}", last);
+
+    let mut n = header & 0x7fffffff;
+    println!("Fragment length: {}", n);
+    let mut fragment: Vec<u8> = Vec::new();
+    while n > 0{
+        //Might need to introduce a local buffer here.  I'm not sure yet
+        let mut handle = socket.by_ref().take(n as u64);
+        try!(handle.read_to_end(&mut fragment).map_err(|e| e.to_string()));
+        n = n - n;
+    }
+    print_fragment(&fragment);
+    return Ok((last, fragment));
+}
+
+fn recvrecord(sock: &mut UnixStream)->Result<Vec<u8>, String>{
+    let mut record:Vec<u8> = Vec::new();
+    let mut last = false;
+    while !last{
+        let (last_frag, frag) = try!(recv_fragment(sock));
+        last = last_frag;
+        for byte in frag{
+            record.push(byte);
+        }
+    }
+    return Ok(record);
+}
+
 //TODO: figure out a better way to do this.  This seems hacky
-pub fn get_local_ip()->Result<String, GlusterError>{//net::Ipv4Addr>{
+pub fn get_local_ip()->Result<Ipv4Addr, GlusterError>{
     let mut default_route: Vec<String>  = Vec::new();
     default_route.push("route".to_string());
     default_route.push("show".to_string());
@@ -373,26 +1180,48 @@ pub fn get_local_ip()->Result<String, GlusterError>{//net::Ipv4Addr>{
 
     //Skip src in the capture
     let local_ip: Vec<&str> = capture_output.unwrap().split(" ").skip(1).collect();
+    let ip_addr = try!(local_ip[0].trim().parse::<Ipv4Addr>());
 
-    return Ok(local_ip[0].trim().to_string());
+    return Ok(ip_addr);
 }
 
-pub fn get_peer_by_hostname(hostname: &str) ->Result<Peer, GlusterError>{
+pub fn resolve_to_ip(address: &str)->Result<String, String>{
+    if address == "localhost"{
+        let local_ip = try!(get_local_ip().map_err(|e| e.to_string()));
+        debug!("hostname is localhost.  Resolving to local ip {}", &local_ip.to_string());
+        return Ok(local_ip.to_string());
+    }
+
+    let mut arg_list: Vec<String> = Vec::new();
+    arg_list.push("+short".to_string());
+    //arg_list.push("-x".to_string());
+    arg_list.push(address.trim().to_string());
+    let output = run_command("dig", &arg_list, false, false);
+
+    let status = output.status;
+
+    if status.success(){
+        let output_str = try!(String::from_utf8(output.stdout).map_err(|e| e.to_string()));
+        //Remove the trailing . and newline
+        let trimmed = output_str.trim().trim_right_matches(".");
+        return Ok(trimmed.to_string());
+    }else{
+        return Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string())));
+    }
+}
+
+pub fn get_local_hostname()->Result<String, GlusterError>{
+    let mut f = try!(File::open("/etc/hostname"));
+    let mut s = String::new();
+    try!(f.read_to_string(&mut s));
+    return Ok(s.trim().to_string());
+}
+
+pub fn get_peer(hostname: &String) ->Result<Peer, GlusterError>{
     let peer_list = try!(peer_list());
-    let local_ip = try!(get_local_ip());
 
     for peer in peer_list{
-        if peer.hostname == "localhost" {
-            //Check if we own the ip address
-            if hostname == local_ip{
-                debug!("Found peer: {:?}", peer);
-                let mut peer_clone = peer.clone();
-                //Swap out the IP.  hostname = "localhost" messes up down stream consumers
-                peer_clone.hostname = local_ip;
-                return Ok(peer_clone);
-            }
-        }
-        if peer.hostname == hostname {
+        if peer.hostname == *hostname {
             debug!("Found peer: {:?}", peer);
             return Ok(peer.clone());
         }
@@ -409,6 +1238,7 @@ fn parse_peer_status(line: &String)-> Result<Vec<Peer>, GlusterError>{
         let hostname = try!(cap.name("hostname").ok_or(
             GlusterError::new(format!("Invalid hostname for peer: {}", line)))
         );
+
         let uuid = try!(cap.name("uuid").ok_or(
             GlusterError::new(format!("Invalid uuid for peer: {}", line)))
         );
@@ -417,13 +1247,32 @@ fn parse_peer_status(line: &String)-> Result<Vec<Peer>, GlusterError>{
             GlusterError::new(format!("Invalid state for peer: {}", line)))
         );
 
-        let peer = Peer{
-            uuid: uuid_parsed,
-            hostname: hostname.to_string(),
-            status: State::new(state_details),
-        };
+        //Translate back into an IP address if needed
+        let check_for_ip = hostname.parse::<Ipv4Addr>();
 
-        peers.push(peer);
+        if check_for_ip.is_err(){
+            //It's a hostname so lets resolve it
+            match resolve_to_ip(&hostname){
+                Ok(ip_addr) => {
+                    peers.push(Peer{
+                        uuid: uuid_parsed,
+                        hostname: ip_addr,
+                        status: State::new(state_details),
+                    });
+                    continue;
+                }
+                Err(e) => {
+                    return Err(GlusterError::new(e.to_string()));
+                }
+            };
+        }else{
+            //It's an IP address so lets use it
+            peers.push(Peer{
+                uuid: uuid_parsed,
+                hostname: hostname.to_string(),
+                status: State::new(state_details),
+            });
+        }
     }
     return Ok(peers);
 }
@@ -463,26 +1312,32 @@ pub fn peer_list() ->Result<Vec<Peer>, GlusterError>{
             let uuid = try!(Uuid::parse_str(v[0]));
             let mut hostname = v[1].trim().to_string();
 
-            debug!("hostname from peer list command is {:?}", &hostname);
-            //Replace localhost with the real IP.  I wish Gluster did this for us
-            if hostname == "localhost"{
-                let local_ip = try!(get_local_ip());
-                debug!("hostname is localhost.  Replacing with local ip {}", &local_ip);
-                hostname = local_ip;
+            //Translate back into an IP address if needed
+            let check_for_ip = hostname.parse::<Ipv4Addr>();
+
+            if check_for_ip.is_err(){
+                //It's a hostname so lets resolve it
+                hostname = match resolve_to_ip(&hostname){
+                    Ok(ip_addr) => ip_addr,
+                    Err(e) => {
+                        return Err(GlusterError::new(e.to_string()));
+                    }
+                };
             }
-            let peer = Peer{
+            debug!("hostname from peer list command is {:?}", &hostname);
+
+            peers.push(Peer{
                 uuid: uuid,
                 hostname: hostname,
                 status: State::new(v[2]),
-            };
-            peers.push(peer);
-        }
+            });
     }
-    return Ok(peers);
+}
+return Ok(peers);
 }
 
 //Probe a peer and prevent double probing
-pub fn peer_probe(hostname: &str)->Result<i32, GlusterError>{
+pub fn peer_probe(hostname: &String)->Result<i32, GlusterError>{
     let current_peers = try!(peer_list());
     for peer in current_peers{
         if peer.hostname == *hostname{
@@ -499,7 +1354,7 @@ pub fn peer_probe(hostname: &str)->Result<i32, GlusterError>{
     return process_output(run_command("gluster", &arg_list, true, false));
 }
 
-pub fn peer_remove(hostname: &str, force: bool)->Result<i32, GlusterError>{
+pub fn peer_remove(hostname: &String, force: bool)->Result<i32, GlusterError>{
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("peer".to_string());
     arg_list.push("detach".to_string());
@@ -589,26 +1444,8 @@ pub fn volume_list()->Option<Vec<String>>{
     return Some(volume_names);
 }
 
-pub fn volume_info(volume: &str) -> Option<Volume> {
-    let mut arg_list: Vec<String>  = Vec::new();
-    arg_list.push("volume".to_string());
-    arg_list.push("info".to_string());
-    arg_list.push(volume.to_string());
-    let output = run_command("gluster", &arg_list, true, false);
-    let status = output.status;
-
-    if !status.success(){
-        debug!("Volume info get command failed");
-        return None;
-    }
-    let output_str:String = match String::from_utf8(output.stdout){
-        Ok(n) => n,
-        Err(_) => {
-            debug!("Volume info output transformation to utf8 failed");
-            return None
-        },
-    };
-
+//TODO: now we can unit test this :) woo!
+fn parse_volume_info(volume: &str, output_str: String)->Result<Volume, GlusterError>{
     //Variables we will return in a struct
     let mut transport_type = String::new();
     let mut volume_type = String::new();
@@ -620,13 +1457,15 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
     if output_str.trim() == "No volumes present"{
         debug!("No volumes present");
         println!("No volumes present");
-        return None;
+        return Err(GlusterError::NoVolumesPresent);
     }
 
     if output_str.trim() == format!("Volume {} does not exist", volume){
         debug!("Volume {} does not exist", volume);
         println!("Volume {} does not exist", volume);
-        return None;
+        return Err(
+            GlusterError::new(format!("Volume: {} does not exist", volume))
+        );
     }
 
     for line in output_str.lines(){
@@ -642,11 +1481,7 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
         }
         if line.starts_with("Volume ID"){
             let x = split_and_return_field(2, line.to_string());
-            id = match Uuid::parse_str(&x){
-                Ok(m) => m,
-                //TODO: I'm ignoring this error for now
-                Err(_) => Uuid::nil(),
-            };
+            id = try!(Uuid::parse_str(&x));
         }
         if line.starts_with("Status"){
             status = split_and_return_field(1, line.to_string());
@@ -666,17 +1501,26 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
                 let brick_parts: Vec<&str> = brick_str.split(":").collect();
                 assert!(brick_parts.len() == 2, "Failed to parse bricks from gluster vol info");
 
-                let peer: Peer = match get_peer_by_hostname(brick_parts[0].trim()){
-                    Ok(p) => p,
-                    //TODO: could we insert a blank peer here?
-                    Err(_) => {
-                        debug!("Failed to get peer by hostname: {}", brick_parts[0]);
-                        println!("Failed to get peer by hostname: {}", brick_parts[0]);
-                        return None
-                    },
-                };
-                debug!("get_peer_by_hostname result: Peer: {:?}", peer);
-                //println!("get_peer_by_hostname result: Peer: {:?}", peer);
+                let mut hostname = brick_parts[0].trim().to_string();
+
+                //Translate back into an IP address if needed
+                let check_for_ip = hostname.parse::<Ipv4Addr>();
+
+                if check_for_ip.is_err(){
+                    //It's a hostname so lets resolve it
+                    hostname = match resolve_to_ip(&hostname){
+                        Ok(ip_addr) => ip_addr,
+                        Err(e) => {
+                            return Err(
+                                GlusterError::new(format!(
+                                    "Failed to resolve hostname: {}. Error: {}", &hostname, e))
+                            );
+                        }
+                    };
+                }
+
+                let peer: Peer = try!(get_peer(&hostname.to_string()));
+                debug!("get_peer_by_ipaddr result: Peer: {:?}", peer);
                 let brick = Brick{
                     //Should this panic if it doesn't work?
                     peer: peer,
@@ -694,7 +1538,29 @@ pub fn volume_info(volume: &str) -> Option<Volume> {
         status: status,
         transport: transport,
         bricks: bricks};
-    return Some(vol_info);
+    return Ok(vol_info);
+}
+
+pub fn volume_info(volume: &str) -> Result<Volume, GlusterError> {
+    let mut arg_list: Vec<String>  = Vec::new();
+    arg_list.push("volume".to_string());
+    arg_list.push("info".to_string());
+    arg_list.push(volume.to_string());
+    let output = run_command("gluster", &arg_list, true, false);
+    let status = output.status;
+
+    if !status.success(){
+        debug!("Volume info get command failed");
+        println!("Volume info get command failed with error: {}",
+            String::from_utf8(output.stdout).unwrap());
+
+        //TODO: What is the appropriate error to report here?
+        //The client is using this to figure out if it should make a volume
+        return Err(GlusterError::NoVolumesPresent);
+    }
+    let output_str:String = try!(String::from_utf8(output.stdout));
+
+    return parse_volume_info(&volume, output_str);
 }
 
 
