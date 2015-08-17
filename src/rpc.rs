@@ -139,8 +139,10 @@ mod tests{
         for byte in peer_bytes{
             call_bytes.push(byte);
         }
-        println!("Left: {:?}", call_bytes);
-        println!("Right: {:?}", packed_call_result_bytes);
+        println!("Left len: {:?}", call_bytes.len());
+        println!("Left:  {:?}", &call_bytes);
+        println!("Right: {:?}", &packed_call_result_bytes);
+        println!("Right len: {:?}", packed_call_result_bytes.len());
         assert_eq!(call_bytes, packed_call_result_bytes);
 
         //Functional tests
