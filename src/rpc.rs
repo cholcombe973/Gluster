@@ -135,9 +135,12 @@ mod tests{
         };
 
         let peer_bytes = peer_request.pack().unwrap();
+        println!("Peer bytes: {:?}", peer_bytes);
         for byte in peer_bytes{
             call_bytes.push(byte);
         }
+        println!("Left: {:?}", call_bytes);
+        println!("Right: {:?}", packed_call_result_bytes);
         assert_eq!(call_bytes, packed_call_result_bytes);
 
         //Functional tests
