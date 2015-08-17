@@ -1,9 +1,13 @@
 mod rpc;
 extern crate byteorder;
 extern crate regex;
+extern crate unix_socket;
 extern crate uuid;
+
 #[macro_use]
 extern crate log;
+
+use byteorder::{BigEndian,ReadBytesExt};
 use regex::Regex;
 use uuid::Uuid;
 
@@ -13,10 +17,15 @@ use std::error::Error;
 use std::fmt;
 use std::fs::File;
 use std::io;
+use std::io::Cursor;
 use std::io::prelude::*;
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
+use std::path::Path;
+use unix_socket::UnixStream;
 
+use rpc::Pack;
+use rpc::UnPack;
 
 #[cfg(test)]
 mod tests{
@@ -780,6 +789,76 @@ pub fn volume_info(volume: &str) -> Result<Volume, GlusterError> {
     return parse_volume_info(&volume, output_str);
 }
 
+//I don't need to know the volume name so long as quotas are enabled
+pub fn get_quota_usage(volume: &str)->Result<u64,GlusterError>{
+    let xid = 1; //Transaction ID number.
+    let prog = 29852134; //I think this is a random # someone generated in the code
+    let vers = 1; //RPC version == 1
+
+    let verf = rpc::GlusterAuth{
+        flavor: rpc::AuthFlavor::AuthNull,
+        stuff: "".to_string(),
+    };
+    let verf_bytes = try!(verf.pack());
+    let cred_flavor = 390039; //Magic number == bad.  No idea where they got this #
+    let creds = rpc::pack_gluster_v2_cred(cred_flavor);
+
+    let mut call_bytes = rpc::pack_quota_callheader(
+        xid, prog, vers, rpc::GlusterAggregatorCommand::GlusterAggregatorGetlimit, creds, verf_bytes);
+
+    let mut dict: HashMap<String,Vec<u8>> = HashMap::with_capacity(4);
+
+    //This is crap
+    let mut gfid = "00000000-0000-0000-0000-000000000001".to_string().into_bytes();
+    gfid.push(0); //Null Terminate
+    let mut name = volume.to_string().into_bytes();
+    name.push(0); //Null Terminate
+    let mut version = "1.20000005".to_string().into_bytes();
+    version.push(0); //Null Terminate
+    //No idea what vol_type == 5 means to Gluster
+    let mut vol_type  = "5".to_string().into_bytes();
+    vol_type.push(0); //Null Terminate
+
+    dict.insert("gfid".to_string(), gfid);
+    dict.insert("type".to_string(), vol_type);
+    dict.insert("volume-uuid".to_string(), name);
+    dict.insert("version".to_string(), version);
+    let quota_request = rpc::GlusterCliRequest{
+            dict: dict,
+    };
+    let quota_bytes = try!(quota_request.pack());
+    for byte in quota_bytes{
+        call_bytes.push(byte);
+    }
+
+    let addr = Path::new("/var/run/gluster/quotad.socket");
+    let mut sock = UnixStream::connect(&addr).unwrap();
+
+    let send_bytes = rpc::sendrecord(&mut sock, &call_bytes);
+    let mut reply_bytes = try!(rpc::recvrecord(&mut sock));
+
+    let mut cursor = Cursor::new(&mut reply_bytes[..]);
+
+    //Check for success
+    try!(rpc::unpack_replyheader(&mut cursor));
+
+    let mut cli_response = try!(rpc::GlusterCliResponse::unpack(&mut cursor));
+    //The raw bytes
+    let mut quota_size_bytes = match cli_response.dict.get_mut("trusted.glusterfs.quota.size"){
+        Some(s) => s,
+        None => {
+            return Err(
+                GlusterError::new(
+                    "trusted.glusterfs.quota.size was not returned from quotad".to_string()));
+        },
+    };
+    //Gluster is crazy and encodes a ton of data in this vector.  We're just going to
+    //read the first value and throw away the rest.  Why they didn't just use a struct and
+    //XDR is beyond me
+    let mut size_cursor = Cursor::new(&mut quota_size_bytes[..]);
+    let usage = try!(size_cursor.read_u64::<BigEndian>());
+    return Ok(usage);
+}
 
 //Return a list of quotas on the volume if any
 pub fn quota_list(volume: &str)->Option<Vec<Quota>>{

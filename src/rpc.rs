@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use self::xdr::xdr::{XdrWriter};
 use self::unix_socket::UnixStream;
 
-
 const RPC_VERSION: u32 = 2;
 
 const CALL: i32 = 0;
@@ -28,10 +27,12 @@ const AUTH_ERROR: i32 = 1;                         // remote can't authenticate 
 
 #[cfg(test)]
 mod tests{
+    extern crate byteorder;
     extern crate unix_socket;
     use std::io::Cursor;
     use std::path::Path;
     use self::unix_socket::UnixStream;
+    use self::byteorder::{BigEndian, ReadBytesExt};
     use super::Pack;
     use super::UnPack;
     use std::collections::HashMap;
@@ -118,10 +119,10 @@ mod tests{
         let prog = 1238463;
         let vers = super::RPC_VERSION;
         let verf = super::GlusterAuth{
-            flavor: 0,
+            flavor: super::AuthFlavor::AuthNull,
             stuff: "".to_string(),
         };
-        let verf_bytes = verf.pack();
+        let verf_bytes = verf.pack().unwrap();
         let cred_flavor = 390039;
         let creds = super::pack_gluster_v2_cred(cred_flavor);
 
@@ -130,14 +131,13 @@ mod tests{
 
         let peer_request = super::GlusterCliPeerListRequest{
                 flags: 2,
-                dict: "".to_string()
+                dict: HashMap::new(), //This works now. Matches Gluster's strace output bytes
         };
 
-        let peer_bytes = peer_request.pack();
+        let peer_bytes = peer_request.pack().unwrap();
         for byte in peer_bytes{
             call_bytes.push(byte);
         }
-
         assert_eq!(call_bytes, packed_call_result_bytes);
 
         //Functional tests
@@ -160,119 +160,107 @@ mod tests{
     }
     #[test]
     fn list_quota(){
-        let mut reply_bytes: Vec<u8> = vec![/*0x00,0x00,0x00,0x7d,*/
-        //Count
-        0x00,0x00,0x00,0x04, //4
-        //Key len
-        0x00,0x00,0x00,0x04, //4
-        //Value len
-        0x00,0x00,0x00,0x25, //37
 
-        //Key
-        0x67,0x66,0x69,0x64, //37
-        0x00, //NULL terminator
-        //Value
-        0x30,0x30,0x30,
-        0x30,0x30,0x30,0x30,
-        0x30,0x2d,0x30,0x30,
-        0x30,0x30,0x2d,0x30,
-        0x30,0x30,0x30,0x2d,
-        0x30,0x30,0x30,0x30,
-        0x2d,0x30,0x30,0x30,
-        0x30,0x30,0x30,0x30,
-        0x30,0x30,0x30,0x30,
-        0x31,0x00, // END Value
-
-        //Key Len
-        0x00,0x00,0x00,0x0b, //11
-        //Value len
-        0x00,0x00,0x00,0x05, //5
-
-        //Key
-        0x76,0x6f,0x6c,0x75,
-        0x6d,0x65,0x2d,0x75,
-        0x75,0x69,0x64,
-        0x00, //Null terminator
-        //Value
-        0x74,0x65,0x73,0x74,0x00,
-        //Key len
-        0x00,0x00,0x00,0x12, //18
-        //Value len
-        0x00,0x00,0x00,0x04, //4
-        //Key
-        0x64,0x65,0x66,0x61,
-        0x75,0x6c,0x74,0x2d,
-        0x73,0x6f,0x66,0x74,
-        0x2d,0x6c,0x69,0x6d,
-        0x69,0x74,
-        0x00, //Null Terminator
-        //Value
-        0x38,0x30,0x25,0x00,
-
-        //Key len
-        0x00,0x00,0x00,0x04, //4
-        //Value len
-        0x00,0x00,0x00,0x02, //2
-        //Key
-        0x74,0x79,0x70,0x65,
-        0x00,
-        //Value
-        0x35,0x00,
-        0x00,0x00,0x00];
-        //let map = deserialize(&mut test_data);
-        //println!("Hashmap: {:?}", map);
+        let mut reply_bytes: Vec<u8> = vec![
+            0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 117, 0, 0, 0, 0, 0, 0, 0, 228, 0, 0, 0, 6, 0, 0, 0, 4, 0, 0, 0, 2, 116, 121, 112, 101,
+            0, 53, 0, 0, 0, 0, 28, 0, 0, 0, 24, 116, 114, 117, 115, 116, 101, 100, 46, 103, 108, 117,
+            115, 116, 101, 114, 102, 115, 46, 113, 117, 111, 116, 97, 46, 115, 105, 122, 101, 0, 0, 0,
+            0, 1, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 23, 0, 0, 0, 2,
+            103, 108, 117, 115, 116, 101, 114, 102, 115, 46, 97, 110, 99, 101, 115, 116, 114, 121, 46,
+            112, 97, 116, 104, 0, 47, 0, 0, 0, 0, 21, 0, 0, 0, 16, 116, 114, 117, 115, 116, 101, 100, 46,
+            103, 108, 117, 115, 116, 101, 114, 102, 115, 46, 100, 104, 116, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117, 115, 116, 101, 114,
+            102, 115, 46, 101, 110, 116, 114, 121, 108, 107, 45, 99, 111, 117, 110, 116, 0, 48, 0, 0,
+            0, 0, 23, 0, 0, 0, 2, 103, 108, 117, 115, 116, 101, 114, 102, 115, 46, 105, 110, 111, 100,
+            101, 108, 107, 45, 99, 111, 117, 110, 116, 0, 48, 0];
 
         let xid = 1;
         let prog = 29852134;
         let vers = 1;
 
         let verf = super::GlusterAuth{
-            flavor: 0,
+            flavor: super::AuthFlavor::AuthNull,
             stuff: "".to_string(),
         };
-        let verf_bytes = verf.pack();
+        let verf_bytes = verf.pack().unwrap();
         let cred_flavor = 390039;
         let creds = super::pack_gluster_v2_cred(cred_flavor);
 
         let mut call_bytes = super::pack_quota_callheader(
             xid, prog, vers, super::GlusterAggregatorCommand::GlusterAggregatorGetlimit, creds, verf_bytes);
 
-        let peer_request = super::GlusterCliRequest{
-                dict: "gfid\000000000-0000-0000-0000-000000000001".to_string()
-                //type
-                //volume-uuid=<volume_name>
-                //version=1.20000005
-        };
+        let mut dict: HashMap<String,Vec<u8>> = HashMap::new();
 
+        let mut gfid = "00000000-0000-0000-0000-000000000001".to_string().into_bytes();
+        gfid.push(0); //Null Terminate
+        let mut name = "test".to_string().into_bytes();
+        name.push(0); //Null Terminate
+        let mut version = "1.20000005".to_string().into_bytes();
+        version.push(0); //Null Terminate
+        let mut vol_type  = "5".to_string().into_bytes();
+        vol_type.push(0); //Null Terminate
+
+        dict.insert("gfid".to_string(), gfid);
+        dict.insert("type".to_string(), vol_type);
+        dict.insert("volume-uuid".to_string(), name);
+        dict.insert("version".to_string(), version);
+        let quota_request = super::GlusterCliRequest{
+                dict: dict,
+        };
+        let quota_bytes = quota_request.pack().unwrap();
+        for byte in quota_bytes{
+            call_bytes.push(byte);
+        }
+
+        /*
         let addr = Path::new("/var/run/gluster/quotad.socket");
         println!("Connecting to /var/run/gluster/quotad.socket");
         let mut sock = UnixStream::connect(&addr).unwrap();
 
         let result = super::sendrecord(&mut sock, &call_bytes);
-        println!("Result: {:?}", result);
+        println!("Quota Result: {:?}", result);
         let mut reply_bytes = super::recvrecord(&mut sock).unwrap();
-        println!("Reply bytes: ");
-        super::print_fragment(&reply_bytes);
+        */
+
+        //println!("Quota Reply len: {}", reply_bytes.len());
+        //println!("Quota Reply bytes: {:?}", &reply_bytes);
+        let mut cursor = Cursor::new(&mut reply_bytes[..]);
+        let reply_header = super::unpack_replyheader(&mut cursor).unwrap();
+
+        let mut cli_response = super::GlusterCliResponse::unpack(&mut cursor).unwrap();
+        println!("Quota reply: {:?}", &cli_response);
+        //The raw bytes
+        let mut quota_size_bytes = cli_response.dict.get_mut("trusted.glusterfs.quota.size").unwrap();
+
+        let mut size_cursor = Cursor::new(&mut quota_size_bytes[..]);
+        //Read u64 off the byte vector and get the decoded value
+        let usage = size_cursor.read_u64::<BigEndian>().unwrap();
+        println!("Quota usage: {}", usage);
     }
 
     #[test]
     fn serialize_dictionary_test(){
-        let mut hm: HashMap<String,String> = HashMap::new();
+        let mut hm: HashMap<String,Vec<u8>> = HashMap::new();
 
-        hm.insert("gfid".to_string(), "00000000-0000-0000-0000-000000000001".to_string());
-        hm.insert("volume-uuid".to_string(), "test".to_string());
-        hm.insert("default-soft-limit".to_string(), "80%".to_string());
-        hm.insert("type".to_string(), "5".to_string());
+        hm.insert("gfid".to_string(), "00000000-0000-0000-0000-000000000001".to_string().into_bytes());
+        hm.insert("volume-uuid".to_string(), "test".to_string().into_bytes());
+        hm.insert("default-soft-limit".to_string(), "80%".to_string().into_bytes());
+        hm.insert("type".to_string(), "5".to_string().into_bytes());
 
-        let mut bytes = super::serialize_dict(&hm);
-        let result_map = super::deserialize_dict(&mut bytes).unwrap();
+        //let mut buffer:Vec<u8> = Vec::new();
+        let mut dict_bytes = super::serialize_dict(&hm).unwrap().into_bytes();
+
+        //Deserialize
+        let mut cursor = Cursor::new(&mut dict_bytes[..]);
+        let result_map = super::deserialize_dict(&mut cursor).unwrap();
 
         assert_eq!(hm, result_map);
     }
 }
 
 pub trait Pack{
-    fn pack(&self) -> Vec<u8>;
+    fn pack(&self) -> Result<Vec<u8>,super::GlusterError>;
 }
 
 pub trait UnPack{
@@ -289,12 +277,19 @@ fn unpack_string<T: Read>(data: &mut T, size: u32)->Result<String,super::Gluster
     return Ok(s);
 }
 
-fn pack_string(s: &String)->Vec<u8>{
-    let mut buffer: Vec<u8> = Vec::new();
+fn unpack_dict_bytes<T: Read>(data: &mut T, size: u32)->Result<Vec<u8>,super::GlusterError>{
+    let mut buffer: Vec<u8> = Vec::with_capacity(size as usize);
+    for _ in 0..size {
+        let b = try!(data.read_u8());
+        buffer.push(b);
+    }
+    return Ok(buffer);
+}
 
+fn pack_string<T: Write>(s: &String, buffer: &mut T){
     let bytes = s.clone().into_bytes();
     let bytes_len = bytes.len();
-    let pad = bytes_len % 4;
+    let pad = (4- (bytes_len % 4)) % 4;
 
     buffer.write_u32::<BigEndian>(bytes_len as u32).unwrap();
 
@@ -306,8 +301,6 @@ fn pack_string(s: &String)->Vec<u8>{
     for _ in 0..pad{
         buffer.write_u8(0).unwrap();
     }
-
-    return buffer;
 }
 
 #[derive(Debug,Clone)]
@@ -332,22 +325,25 @@ impl AuthFlavor{
 
 #[derive(Debug)]
 pub struct GlusterCliRequest{
-    pub dict: HashMap<String,String> //Should these both be strings?
+    pub dict: HashMap<String,Vec<u8>>
 }
 
 impl Pack for GlusterCliRequest{
-    fn pack(&self)->Vec<u8>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.dict.clone());
-        return wr.into_buffer();
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
+        let mut buffer:Vec<u8> = Vec::new();
+        let dict_string: String = try!(serialize_dict(&self.dict));
+        pack_string(&dict_string, &mut buffer);
+        return Ok(buffer);
     }
 }
 
 impl UnPack for GlusterCliRequest{
     //Expects a cursor so calls can be chained
-    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliRequest, super::GlusterError>{
+    fn unpack<R: Read>(data: &mut R)->Result<GlusterCliRequest, super::GlusterError>{
         let size = try!(data.read_u32::<BigEndian>());
-        let dict = try!(unpack_string(data, size));
+        let mut s = try!(unpack_string(data, size)).into_bytes();
+        let mut cursor = Cursor::new(&mut s[..]);
+        let dict = try!(deserialize_dict(&mut cursor));
 
         return Ok(GlusterCliRequest{
             dict: dict
@@ -360,30 +356,34 @@ pub struct GlusterCliResponse{
     pub op_ret: i32,
     pub op_errno: i32,
     pub op_errstr: String,
-    pub dict: HashMap<String,String>
+    pub dict: HashMap<String,Vec<u8>>
 }
 
 impl Pack for GlusterCliResponse{
-    fn pack(&self)->Vec<u8>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.op_ret);
-        wr.pack(self.op_errno);
-        wr.pack(self.op_errstr.clone());
-        wr.pack(self.dict.clone());
-        return wr.into_buffer();
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
+        let mut buffer: Vec<u8> = Vec::new();
+        buffer.write_i32::<BigEndian>(self.op_ret).unwrap();
+        buffer.write_i32::<BigEndian>(self.op_errno).unwrap();
+        pack_string(&self.op_errstr, &mut buffer);
+        let dict_string = try!(serialize_dict(&self.dict));
+        pack_string(&dict_string, &mut buffer);
+        return Ok(buffer);
     }
 }
 
 impl UnPack for GlusterCliResponse{
-    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliResponse, super::GlusterError>{
+    fn unpack<R: Read>(data: &mut R)->Result<GlusterCliResponse, super::GlusterError>{
         let op_ret = try!(data.read_i32::<BigEndian>());
         let op_errno = try!(data.read_i32::<BigEndian>());
 
         let size = try!(data.read_u32::<BigEndian>());
         let op_errstr = try!(unpack_string(data, size));
 
+        //Unpack the opaque string and then deserialize it into a dict
         let size = try!(data.read_u32::<BigEndian>());
-        let dict = try!(unpack_string(data, size));
+        let mut s = try!(unpack_dict_bytes(data, size));
+        let mut cursor = Cursor::new(&mut s[..]);
+        let dict = try!(deserialize_dict(&mut cursor));
 
         return Ok(GlusterCliResponse{
             op_ret: op_ret,
@@ -397,28 +397,28 @@ impl UnPack for GlusterCliResponse{
 #[derive(Debug)]
 pub struct GlusterCliPeerListRequest{
     pub flags: i32,
-    pub dict: HashMap<String,String>
+    pub dict: HashMap<String,Vec<u8>>
 }
 
 impl Pack for GlusterCliPeerListRequest{
-    fn pack(&self)->Vec<u8>{
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         //XDRlib has a bug where it doesn't pad Strings correctly that are size 0
         let mut buffer: Vec<u8> = Vec::new();
-        buffer.write_i32::<BigEndian>(self.flags).unwrap();
-        let string_buffer = pack_string(&self.dict);
-        for byte in string_buffer{
-            buffer.push(byte);
-        }
-        return buffer;
+        try!(buffer.write_i32::<BigEndian>(self.flags));
+        let dict_string = try!(serialize_dict(&self.dict));
+        pack_string(&dict_string, &mut buffer);
+        return Ok(buffer);
     }
 }
 
 impl UnPack for GlusterCliPeerListRequest{
-    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliPeerListRequest, super::GlusterError>{
+    fn unpack<R: Read>(data: &mut R)->Result<GlusterCliPeerListRequest, super::GlusterError>{
         let flags = try!(data.read_i32::<BigEndian>());
 
         let size = try!(data.read_u32::<BigEndian>());
-        let dict = try!(unpack_string(data, size));
+        let mut s = try!(unpack_dict_bytes(data, size));
+        let mut cursor = Cursor::new(&mut s[..]);
+        let dict = try!(deserialize_dict(&mut cursor));
 
         return Ok(GlusterCliPeerListRequest{
             flags: flags,
@@ -431,29 +431,33 @@ impl UnPack for GlusterCliPeerListRequest{
 pub struct GlusterCliPeerListResponse{
     pub op_ret: i32,
     pub op_errno: i32,
-    pub friends: HashMap<String,String>,
+    //Replace all dict instances with the correct parameters
+    //For example this should be a Vec<Friend> ?
+    //That way dict can deserialize the opaque crap
+    //and then we can deserialize into the correct type at unpack time
+    pub friends: HashMap<String,Vec<u8>>,
 }
 
 impl Pack for GlusterCliPeerListResponse{
-    fn pack(&self)->Vec<u8>{
-        let mut wr = XdrWriter::new();
-
-        wr.pack(self.op_ret);
-        wr.pack(self.op_errno);
-        wr.pack(self.friends.clone());
-
-        return wr.into_buffer();
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
+        let mut buffer:Vec<u8> = Vec::new();
+        try!(buffer.write_i32::<BigEndian>(self.op_ret));
+        try!(buffer.write_i32::<BigEndian>(self.op_errno));
+        let dict_string = try!(serialize_dict(&self.friends));
+        pack_string(&dict_string, &mut buffer);
+        return Ok(buffer);
     }
 }
 
 impl UnPack for GlusterCliPeerListResponse{
-    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliPeerListResponse, super::GlusterError>{
+    fn unpack<R: Read>(data: &mut R)->Result<GlusterCliPeerListResponse, super::GlusterError>{
         let op_ret = try!(data.read_i32::<BigEndian>());
         let op_errno = try!(data.read_i32::<BigEndian>());
 
         let size = try!(data.read_u32::<BigEndian>());
-        println!("Peer list size: {}", size);
-        let friends = try!(unpack_string(data, size));
+        let mut s = try!(unpack_dict_bytes(data, size));
+        let mut cursor = Cursor::new(&mut s[..]);
+        let friends = try!(deserialize_dict(&mut cursor));
 
         return Ok(GlusterCliPeerListResponse{
             op_ret: op_ret,
@@ -469,10 +473,10 @@ pub struct GlusterCliFsmLogRequest{
 }
 
 impl Pack for GlusterCliFsmLogRequest{
-    fn pack(&self)->Vec<u8>{
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut wr = XdrWriter::new();
         wr.pack(self.name.clone());
-        return wr.into_buffer();
+        return Ok(wr.into_buffer());
     }
 }
 
@@ -496,13 +500,13 @@ pub struct GlusterCliFsmLogReponse{
 }
 
 impl Pack for GlusterCliFsmLogReponse{
-    fn pack(&self)->Vec<u8>{
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut wr = XdrWriter::new();
         wr.pack(self.op_ret);
         wr.pack(self.op_errno);
         wr.pack(self.op_errstr.clone());
         wr.pack(self.fsm_log.clone());
-        return wr.into_buffer();
+        return Ok(wr.into_buffer());
     }
 }
 impl UnPack for GlusterCliFsmLogReponse{
@@ -532,10 +536,10 @@ pub struct GlusterCliGetwdRequest{
 }
 
 impl Pack for GlusterCliGetwdRequest{
-    fn pack(&self)->Vec<u8>{
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut wr = XdrWriter::new();
         wr.pack(self.unused);
-        return wr.into_buffer();
+        return Ok(wr.into_buffer());
     }
 }
 
@@ -556,12 +560,12 @@ pub struct GlusterCliGetwdResponse{
 }
 
 impl Pack for GlusterCliGetwdResponse{
-    fn pack(&self)->Vec<u8>{
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut wr = XdrWriter::new();
         wr.pack(self.op_ret);
         wr.pack(self.op_errno);
         wr.pack(self.wd.clone());
-        return wr.into_buffer();
+        return Ok(wr.into_buffer());
     }
 }
 
@@ -584,25 +588,28 @@ impl UnPack for GlusterCliGetwdResponse{
 #[derive(Debug)]
 pub struct GlusterCliMountRequest{
     pub label: String,
-    pub dict: String,
+    pub dict: HashMap<String,Vec<u8>>,
 }
 
 impl Pack for GlusterCliMountRequest{
-    fn pack(&self)->Vec<u8>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.label.clone());
-        wr.pack(self.dict.clone());
-        return wr.into_buffer();
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
+        let mut buffer:Vec<u8> = Vec::new();
+        pack_string(&self.label, &mut buffer);
+        let dict_string = try!(serialize_dict(&self.dict));
+        pack_string(&dict_string, &mut buffer);
+        return Ok(buffer);
     }
 }
 
 impl UnPack for GlusterCliMountRequest{
-    fn unpack<T: Read>(data: &mut T)->Result<GlusterCliMountRequest, super::GlusterError>{
+    fn unpack<R: Read>(data: &mut R)->Result<GlusterCliMountRequest, super::GlusterError>{
         let size = try!(data.read_u32::<BigEndian>());
         let label = try!(unpack_string(data, size));
 
         let size = try!(data.read_u32::<BigEndian>());
-        let dict = try!(unpack_string(data, size));
+        let mut s = try!(unpack_string(data, size)).into_bytes();
+        let mut cursor = Cursor::new(&mut s[..]);
+        let dict = try!(deserialize_dict(&mut cursor));
 
         return Ok(GlusterCliMountRequest{
             label: label,
@@ -619,12 +626,12 @@ pub struct GlusterCliMountResponse{
 }
 
 impl Pack for GlusterCliMountResponse{
-    fn pack(&self)->Vec<u8>{
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut wr = XdrWriter::new();
         wr.pack(self.op_ret);
         wr.pack(self.op_errno);
         wr.pack(self.path.clone());
-        return wr.into_buffer();
+        return Ok(wr.into_buffer());
     }
 }
 
@@ -651,11 +658,11 @@ pub struct GlusterCliUmountRequest{
 }
 
 impl Pack for GlusterCliUmountRequest{
-    fn pack(&self)->Vec<u8>{
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut wr = XdrWriter::new();
         wr.pack(self.lazy);
         wr.pack(self.path.clone());
-        return wr.into_buffer();
+        return Ok(wr.into_buffer());
     }
 }
 
@@ -680,11 +687,11 @@ pub struct GlusterCliUmountResponse{
 }
 
 impl Pack for GlusterCliUmountResponse{
-    fn pack(&self)->Vec<u8>{
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut wr = XdrWriter::new();
         wr.pack(self.op_ret);
         wr.pack(self.op_errno);
-        return wr.into_buffer();
+        return Ok(wr.into_buffer());
     }
 }
 
@@ -702,7 +709,7 @@ impl UnPack for GlusterCliUmountResponse{
 
 #[derive(Debug)]
 pub struct GlusterAuth{
-    pub flavor: i32,
+    pub flavor: AuthFlavor,//i32,
     pub stuff: String
 }
 
@@ -712,11 +719,11 @@ pub struct GlusterCred{
 }
 
 impl Pack for GlusterAuth{
-    fn pack(&self)->Vec<u8>{
+    fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut wr = XdrWriter::new();
-        wr.pack(self.flavor);
+        wr.pack(self.flavor.clone() as i32);
         wr.pack(self.stuff.clone());
-        return wr.into_buffer();
+        return Ok(wr.into_buffer());
     }
 }
 
@@ -776,68 +783,68 @@ fn htonl(num: u32)->u32{
 
 //Takes a generic which will most likely be a Cursor
 //That way the next call can also use the last cursor position
-pub fn unpack_replyheader<T: Read>(data: &mut T)->Result<(u32, GlusterAuth), String>{
-    let xid = data.read_u32::<BigEndian>().unwrap();
+pub fn unpack_replyheader<T: Read>(data: &mut T)->Result<(u32, GlusterAuth), super::GlusterError>{
+    let xid = try!(data.read_u32::<BigEndian>());
     println!("reply xid {}", xid);
-    let msg_type = data.read_i32::<BigEndian>().unwrap();
+    let msg_type = try!(data.read_i32::<BigEndian>());
     println!("reply msg_type {}", xid);
 
     if msg_type != REPLY{
         //Invalid REPLY
-        return Err(format!("Invalid reply with msg_type: {}", msg_type));
+        return Err(super::GlusterError::new(format!("Invalid reply with msg_type: {}", msg_type)));
     }
 
-    let stat = data.read_i32::<BigEndian>().unwrap();
+    let stat = try!(data.read_i32::<BigEndian>());
     println!("reply stat {}", xid);
     if stat == MSG_DENIED {
-        let reason = data.read_i32::<BigEndian>().unwrap();
+        let reason = try!(data.read_i32::<BigEndian>());
         if reason == RPC_MISMATCH{
-            let low = data.read_u32::<BigEndian>().unwrap();
-            let high = data.read_u32::<BigEndian>().unwrap();
-            return Err(format!("MSG_DENIED: RPC_MISMATCH low: {} high: {}", low, high));
+            let low = try!(data.read_u32::<BigEndian>());
+            let high = try!(data.read_u32::<BigEndian>());
+            return Err(super::GlusterError::new(format!("MSG_DENIED: RPC_MISMATCH low: {} high: {}", low, high)));
         }
         if reason == AUTH_ERROR {
-            let err = data.read_u32::<BigEndian>().unwrap();
-            return Err(format!("MSG_DENIED: AUTH_ERROR {}", err));
+            let err = try!(data.read_u32::<BigEndian>());
+            return Err(super::GlusterError::new(format!("MSG_DENIED: AUTH_ERROR {}", err)));
         }
-        return Err(format!("MSG_DENIED: {}", reason));
+        return Err(super::GlusterError::new(format!("MSG_DENIED: {}", reason)));
     }
     if stat == MSG_ACCEPTED{
-        let auth_flavor = data.read_i32::<BigEndian>().unwrap();
+        let auth_flavor = try!(data.read_i32::<BigEndian>());
 
-        let size = data.read_u32::<BigEndian>().unwrap();
-        let stuff = unpack_string(data, size).unwrap();
+        let size = try!(data.read_u32::<BigEndian>());
+        let stuff = try!(unpack_string(data, size));
 
-        let accept_message = data.read_i32::<BigEndian>().unwrap();
+        let accept_message = try!(data.read_i32::<BigEndian>());
         //Parse auth_flavor into the enum
         let rpc_auth = GlusterAuth{
-            flavor: auth_flavor,
+            flavor: AuthFlavor::new(auth_flavor),
             stuff: stuff,
         };
         match accept_message{
             PROG_UNAVAIL => {
-                return Err("call failed PROG_UNAVAIL".to_string());
+                return Err(super::GlusterError::new("call failed PROG_UNAVAIL".to_string()));
             },
             PROG_MISMATCH => {
-                let low = data.read_u32::<BigEndian>().unwrap();
-                let high = data.read_u32::<BigEndian>().unwrap();
-                return Err(format!("Call failed: PROG_MISMATCH low: {} high: {}", low, high));
+                let low = try!(data.read_u32::<BigEndian>());
+                let high = try!(data.read_u32::<BigEndian>());
+                return Err(super::GlusterError::new(format!("Call failed: PROG_MISMATCH low: {} high: {}", low, high)));
             }
             PROC_UNAVAIL => {
-                return Err("call failed PROC_UNAVAIL".to_string());
+                return Err(super::GlusterError::new("call failed PROC_UNAVAIL".to_string()));
             },
             GARBAGE_ARGS => {
-                return Err("call failed GARBAGE_ARGS".to_string());
+                return Err(super::GlusterError::new("call failed GARBAGE_ARGS".to_string()));
             },
             SUCCESS => {
                 return Ok((xid, rpc_auth));
             }
             _ => {
-                return Err(format!("Call failed: {}", accept_message));
+                return Err(super::GlusterError::new(format!("Call failed: {}", accept_message)));
             }
         }
     }else{
-        return Err(format!("MSG neither denied or accepted: {}", stat));
+        return Err(super::GlusterError::new(format!("MSG neither denied or accepted: {}", stat)));
     }
 }
 
@@ -892,17 +899,17 @@ pub fn print_fragment(frag: &Vec<u8>){
     Uses a generic trait so that this function can be unit tested
     by replaying captured data.
  */
-pub fn recv_fragment<T: Read>(socket: &mut T)-> Result<(bool, Vec<u8>), String>{
+pub fn recv_fragment<T: Read>(socket: &mut T)-> Result<(bool, Vec<u8>), super::GlusterError>{
     //Read at most 4 bytes
     let mut buffer: Vec<u8> = Vec::new();
 
-    try!(socket.by_ref().take(4).read_to_end(&mut buffer).map_err(|e| e.to_string()));
+    try!(socket.by_ref().take(4).read_to_end(&mut buffer));
 
     if buffer.len() < 4{
-        return Err("EOF Error".to_string());
+        return Err(super::GlusterError::new("EOF Error".to_string()));
     }
     let mut buf = Cursor::new(&buffer[..]);
-    let header = buf.read_u32::<BigEndian>().unwrap();
+    let header = try!(buf.read_u32::<BigEndian>());
 
     let last = (header & 0x80000000) != 0;
     println!("Last Fragment: {}", last);
@@ -913,14 +920,14 @@ pub fn recv_fragment<T: Read>(socket: &mut T)-> Result<(bool, Vec<u8>), String>{
     while n > 0{
         //Might need to introduce a local buffer here.  I'm not sure yet
         let mut handle = socket.by_ref().take(n as u64);
-        try!(handle.read_to_end(&mut fragment).map_err(|e| e.to_string()));
+        try!(handle.read_to_end(&mut fragment));
         n = n - n;
     }
     print_fragment(&fragment);
     return Ok((last, fragment));
 }
 
-pub fn recvrecord(sock: &mut UnixStream)->Result<Vec<u8>, String>{
+pub fn recvrecord(sock: &mut UnixStream)->Result<Vec<u8>, super::GlusterError>{
     let mut record:Vec<u8> = Vec::new();
     let mut last = false;
     while !last{
@@ -993,21 +1000,22 @@ pub enum GlusterCliCommand {
     GlusterCliMaxvalue = 46,
 }
 
-fn unpack_key<T: Read>(data: &mut T, size: u32)->Result<String,String>{
-   return unpack_value(data, size, true);
+fn unpack_key<T: Read>(data: &mut T, size: u32)->Result<String,super::GlusterError>{
+    let v = try!(unpack_value(data, size, true));
+    let s = try!(String::from_utf8(v));
+    return Ok(s.trim_matches('\0').to_string());
 }
 
-fn unpack_value<T: Read>(data: &mut T, size: u32, skip_null: bool)->Result<String,String>{
+fn unpack_value<T: Read>(data: &mut T, size: u32, skip_null: bool)->Result<Vec<u8>,super::GlusterError>{
     let mut buffer: Vec<u8> = Vec::with_capacity(size as usize);
     for _ in 0..size {
-        let b = try!(data.read_u8().map_err(|e| e.to_string()));
+        let b = try!(data.read_u8());
         buffer.push(b);
     }
     if skip_null{
-        try!(data.read_u8().map_err(|e| e.to_string()));
+        try!(data.read_u8());
     }
-    let s = try!(String::from_utf8(buffer).map_err(|e| e.to_string()));
-    return Ok(s.trim_matches('\0').to_string());
+    return Ok(buffer);
 }
 
 /*
@@ -1018,48 +1026,46 @@ Serialization format:
  4        4         4       <key len>   <value len>
  //NOTE keys are NULL terminated but not value's
 */
-pub fn serialize_dict(dict: &HashMap<String,String>)->Vec<u8>{
+//Takes a HashMap and a buffer to serialize the HashMap into
+pub fn serialize_dict(dict: &HashMap<String,Vec<u8>>)->Result<String,super::GlusterError>{
+    //Maybe the problem is that this whole thing is supposed to be packed into a string
+    //yeah... that could be it.  I'm writing the raw shit to the wire when I should be
+    //returning a string which is then pack_opaque
     let mut buffer: Vec<u8> = Vec::new();
-    buffer.write_u32::<BigEndian>(dict.len() as u32).unwrap();
 
-    for (key, value) in dict.iter(){
-        buffer.write_u32::<BigEndian>(key.len() as u32).unwrap();
-        buffer.write_u32::<BigEndian>(value.len() as u32).unwrap();
-        for b in key.clone().into_bytes(){
-            buffer.write_u8(b);
-        }
-        //Null terminate key
-        buffer.write_u8(0x00);
+    //Only write if there's something to write
+    if dict.len() > 0{
+        try!(buffer.write_u32::<BigEndian>(dict.len() as u32));
 
-        for b in value.clone().into_bytes(){
-            buffer.write_u8(b);
+        for (key, value) in dict.iter(){
+            try!(buffer.write_u32::<BigEndian>(key.len() as u32));
+            try!(buffer.write_u32::<BigEndian>(value.len() as u32));
+            for b in key.clone().into_bytes(){
+                try!(buffer.write_u8(b));
+            }
+            //Null terminate key
+            try!(buffer.write_u8(0x00));
+
+            for b in value.clone(){
+                try!(buffer.write_u8(b));
+            }
         }
     }
-    return buffer;
+    let ret_string = try!(String::from_utf8(buffer));
+    return Ok(ret_string);
 }
 
-pub fn deserialize_dict(dict: &mut Vec<u8>)->Result<HashMap<String,String>, String>{
-    let mut cursor = Cursor::new(&mut dict[..]);
-    let count = cursor.read_u32::<BigEndian>().unwrap();
-    let mut map = HashMap::with_capacity(count as usize);
+pub fn deserialize_dict<R: Read>(cursor: &mut R)->Result<HashMap<String,Vec<u8>>, super::GlusterError>{
+    let count = try!(cursor.read_u32::<BigEndian>());
+    let mut map  = HashMap::with_capacity(count as usize);
     for _ in 0..count{
 
-        let key_len = cursor.read_u32::<BigEndian>().unwrap();
+        let key_len = try!(cursor.read_u32::<BigEndian>());
+        let value_len = try!(cursor.read_u32::<BigEndian>());
 
-        let value_len = cursor.read_u32::<BigEndian>().unwrap();
+        let key = try!(unpack_key(cursor, key_len));
+        let value = try!(unpack_value(cursor, value_len, false));
 
-        let key = match unpack_key(&mut cursor, key_len){
-            Ok(s) => s,
-            Err(e) => {
-                return Err(format!("Unable to unpack string: {}", e));
-            },
-        };
-        let value = match unpack_value(&mut cursor, value_len, false){
-            Ok(s) => s,
-            Err(e) => {
-                return Err(format!("Unable to unpack string: {}", e));
-            },
-        };
         map.insert(key, value);
     }
     return Ok(map);
