@@ -12,6 +12,3 @@ log = "*"
 regex = "*"
 unix_socket = "*"
 uuid = "*"
-
-[dependencies.xdr]
-git = "https://github.com/savant2212/xdr-rs"

@@ -1,16 +1,16 @@
 extern crate byteorder;
 extern crate unix_socket;
-extern crate xdr;
 
 use std::io::Cursor;
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::prelude::*;
 use std::collections::HashMap;
-use self::xdr::xdr::{XdrWriter};
 use self::unix_socket::UnixStream;
 
+pub const GLUSTER_CLI_PROGRAM_NUMBER: i32 = 1238463;
+pub const GLUSTER_V2_CRED_FLAVOR: i32 = 390039;
+pub const GLUSTER_QUOTA_PROGRAM_NUMBER: i32 = 29852134;
 const RPC_VERSION: u32 = 2;
-
 const CALL: i32 = 0;
 const REPLY: i32 = 1;
 const MSG_ACCEPTED: i32 = 0;
@@ -116,18 +116,26 @@ mod tests{
         ];
 
         let xid = 1;
-        let prog = 1238463;
+        let prog = super::GLUSTER_CLI_PROGRAM_NUMBER;
         let vers = super::RPC_VERSION;
         let verf = super::GlusterAuth{
             flavor: super::AuthFlavor::AuthNull,
-            stuff: "".to_string(),
+            stuff: vec![0,0,0,0]
         };
         let verf_bytes = verf.pack().unwrap();
-        let cred_flavor = 390039;
-        let creds = super::pack_gluster_v2_cred(cred_flavor);
+        let creds = super::GlusterCred{
+            flavor: super::GLUSTER_V2_CRED_FLAVOR,
+            pid: 0,
+            uid: 0,
+            gid: 0,
+            groups: "".to_string(),
+            lock_owner: vec![0,0,0,0]
+        };
+        let cred_bytes = creds.pack().unwrap();
 
         let mut call_bytes = super::pack_cli_callheader(
-            xid, prog, vers, super::GlusterCliCommand::GlusterCliListFriends, creds, verf_bytes);
+            xid, prog, vers,
+            super::GlusterCliCommand::GlusterCliListFriends, cred_bytes, verf_bytes).unwrap();
 
         let peer_request = super::GlusterCliPeerListRequest{
                 flags: 2,
@@ -181,19 +189,29 @@ mod tests{
             101, 108, 107, 45, 99, 111, 117, 110, 116, 0, 48, 0];
 
         let xid = 1;
-        let prog = 29852134;
+        let prog = super::GLUSTER_QUOTA_PROGRAM_NUMBER;
         let vers = 1;
 
         let verf = super::GlusterAuth{
             flavor: super::AuthFlavor::AuthNull,
-            stuff: "".to_string(),
+            stuff: vec![0,0,0,0]
         };
         let verf_bytes = verf.pack().unwrap();
-        let cred_flavor = 390039;
-        let creds = super::pack_gluster_v2_cred(cred_flavor);
+
+        let creds = super::GlusterCred{
+            flavor: super::GLUSTER_V2_CRED_FLAVOR,
+            pid: 0,
+            uid: 0,
+            gid: 0,
+            groups: "".to_string(),
+            lock_owner: vec![0,0,0,0],
+        };
+        let cred_bytes = creds.pack().unwrap();
 
         let mut call_bytes = super::pack_quota_callheader(
-            xid, prog, vers, super::GlusterAggregatorCommand::GlusterAggregatorGetlimit, creds, verf_bytes);
+            xid, prog, vers,
+            super::GlusterAggregatorCommand::GlusterAggregatorGetlimit,
+            cred_bytes, verf_bytes).unwrap();
 
         let mut dict: HashMap<String,Vec<u8>> = HashMap::new();
 
@@ -479,9 +497,9 @@ pub struct GlusterCliFsmLogRequest{
 
 impl Pack for GlusterCliFsmLogRequest{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.name.clone());
-        return Ok(wr.into_buffer());
+        let mut buffer:Vec<u8> = Vec::new();
+        pack_string(&self.name, &mut buffer);
+        return Ok(buffer);
     }
 }
 
@@ -506,12 +524,12 @@ pub struct GlusterCliFsmLogReponse{
 
 impl Pack for GlusterCliFsmLogReponse{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.op_ret);
-        wr.pack(self.op_errno);
-        wr.pack(self.op_errstr.clone());
-        wr.pack(self.fsm_log.clone());
-        return Ok(wr.into_buffer());
+        let mut buffer:Vec<u8> = Vec::new();
+        try!(buffer.write_i32::<BigEndian>(self.op_ret));
+        try!(buffer.write_i32::<BigEndian>(self.op_errno));
+        pack_string(&self.op_errstr, &mut buffer);
+        pack_string(&self.fsm_log, &mut buffer);
+        return Ok(buffer);
     }
 }
 impl UnPack for GlusterCliFsmLogReponse{
@@ -542,9 +560,9 @@ pub struct GlusterCliGetwdRequest{
 
 impl Pack for GlusterCliGetwdRequest{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.unused);
-        return Ok(wr.into_buffer());
+        let mut buffer:Vec<u8> = Vec::new();
+        try!(buffer.write_i32::<BigEndian>(self.unused));
+        return Ok(buffer);
     }
 }
 
@@ -566,11 +584,11 @@ pub struct GlusterCliGetwdResponse{
 
 impl Pack for GlusterCliGetwdResponse{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.op_ret);
-        wr.pack(self.op_errno);
-        wr.pack(self.wd.clone());
-        return Ok(wr.into_buffer());
+        let mut buffer:Vec<u8> = Vec::new();
+        try!(buffer.write_i32::<BigEndian>(self.op_ret));
+        try!(buffer.write_i32::<BigEndian>(self.op_errno));
+        pack_string(&self.wd, &mut buffer);
+        return Ok(buffer);
     }
 }
 
@@ -632,11 +650,11 @@ pub struct GlusterCliMountResponse{
 
 impl Pack for GlusterCliMountResponse{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.op_ret);
-        wr.pack(self.op_errno);
-        wr.pack(self.path.clone());
-        return Ok(wr.into_buffer());
+        let mut buffer:Vec<u8> = Vec::new();
+        try!(buffer.write_i32::<BigEndian>(self.op_ret));
+        try!(buffer.write_i32::<BigEndian>(self.op_errno));
+        pack_string(&self.path, &mut buffer);
+        return Ok(buffer);
     }
 }
 
@@ -664,10 +682,10 @@ pub struct GlusterCliUmountRequest{
 
 impl Pack for GlusterCliUmountRequest{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.lazy);
-        wr.pack(self.path.clone());
-        return Ok(wr.into_buffer());
+        let mut buffer:Vec<u8> = Vec::new();
+        try!(buffer.write_i32::<BigEndian>(self.lazy));
+        pack_string(&self.path, &mut buffer);
+        return Ok(buffer);
     }
 }
 
@@ -693,10 +711,10 @@ pub struct GlusterCliUmountResponse{
 
 impl Pack for GlusterCliUmountResponse{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.op_ret);
-        wr.pack(self.op_errno);
-        return Ok(wr.into_buffer());
+        let mut buffer:Vec<u8> = Vec::new();
+        try!(buffer.write_i32::<BigEndian>(self.op_ret));
+        try!(buffer.write_i32::<BigEndian>(self.op_errno));
+        return Ok(buffer);
     }
 }
 
@@ -715,65 +733,132 @@ impl UnPack for GlusterCliUmountResponse{
 #[derive(Debug)]
 pub struct GlusterAuth{
     pub flavor: AuthFlavor,//i32,
-    pub stuff: String
+    pub stuff: Vec<u8>,
+    //I think I'm missing a field here
+    //$29 = {pid = 0, uid = 0, gid = 0, groups = {groups_len = 0, groups_val = 0x0},
+    //lk_owner = {lk_owner_len = 4,
+    //lk_owner_val = 0x7ffff4119b50 ""}}
 }
 
 #[derive(Debug)]
 pub struct GlusterCred{
     pub flavor: i32,
+
+    //Experimental
+    //I think this is supposed to be a string?
+    pub pid: u32,
+    pub uid: u32,
+    pub gid: u32,
+    pub groups: String,
+    pub lock_owner: Vec<u8>, // I wish I knew what this was
+    /*
+    //Maybe that's what all this crap is
+    owner[0] = (char)(au.pid & 0xff);
+    owner[1] = (char)((au.pid >> 8) & 0xff);
+    owner[2] = (char)((au.pid >> 16) & 0xff);
+    owner[3] = (char)((au.pid >> 24) & 0xff);
+    1361
+    au.lk_owner.lk_owner_val = owner;
+    au.lk_owner.lk_owner_len = 4;
+     */
 }
 
 impl Pack for GlusterAuth{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
-        let mut wr = XdrWriter::new();
-        wr.pack(self.flavor.clone() as i32);
-        wr.pack(self.stuff.clone());
-        return Ok(wr.into_buffer());
+        let mut buffer:Vec<u8> = Vec::new();
+        try!(buffer.write_i32::<BigEndian>(self.flavor.clone() as i32));
+
+        for b in &self.stuff{
+            buffer.push(b.clone());
+        }
+
+        return Ok(buffer);
     }
 }
 
-pub fn pack_gluster_v2_cred(flavor: i32)->Vec<u8>{
-    let mut wr = XdrWriter::new();
-    //let flavor: i32 = 390039
-    wr.pack(flavor);
-    wr.pack(24); // Length = 24
-    wr.pack(0);  // Padding?
-    wr.pack(0);
-    wr.pack(0);
-    wr.pack(0);
-    wr.pack(4);
-    return wr.into_buffer();
+impl Pack for GlusterCred{
+    fn pack(&self) -> Result<Vec<u8>, super::GlusterError>{
+        let mut buffer:Vec<u8> = Vec::new();
+
+        try!(buffer.write_i32::<BigEndian>(self.flavor));
+
+        //Write the size of the next chunk
+        try!(buffer.write_u32::<BigEndian>(24));
+
+        try!(buffer.write_u32::<BigEndian>(self.pid)); //4
+        try!(buffer.write_u32::<BigEndian>(self.uid)); //8
+        try!(buffer.write_u32::<BigEndian>(self.gid)); //12
+        pack_string(&self.groups, &mut buffer); //16?
+
+        //lock_owner length
+        try!(buffer.write_u32::<BigEndian>(4)); //12
+        for b in &self.lock_owner{
+            buffer.push(b.clone());
+        }
+        //pack_string(&self.lock_owner, &mut buffer); //20-24?
+
+        println!("Credential Bytes: {:?}", &buffer);
+
+        return Ok(buffer);
+    }
 }
+
+/*pub fn pack_gluster_v2_cred(flavor: i32)->Result<Vec<u8>, super::GlusterError>{
+    let mut buffer:Vec<u8> = Vec::new();
+    try!(buffer.write_i32::<BigEndian>(flavor));
+
+    //Experimental
+    try!(buffer.write_u32::<BigEndian>(self.pid));
+    try!(buffer.write_u32::<BigEndian>(self.uid));
+    try!(buffer.write_u32::<BigEndian>(self.gid));
+    pack_string(self.groups, &mut buffer);
+    pack_string(self.lock_owner, &mut buffer);
+    /*
+    try!(buffer.write_i32::<BigEndian>(24));
+    try!(buffer.write_i32::<BigEndian>(0));
+    try!(buffer.write_i32::<BigEndian>(0));
+    try!(buffer.write_i32::<BigEndian>(0));
+    try!(buffer.write_i32::<BigEndian>(0));
+    try!(buffer.write_i32::<BigEndian>(4));
+
+    //Test
+    //TODO: That works.  What are these two fields supposed to be??
+    try!(buffer.write_u32::<BigEndian>(0));
+    try!(buffer.write_u32::<BigEndian>(0));
+    */
+    return Ok(buffer);
+}
+*/
 pub fn pack_quota_callheader(xid: u32, prog: i32, vers: u32, proc_num: GlusterAggregatorCommand,
-    cred_flavor: Vec<u8>, verf: Vec<u8>)->Vec<u8>{
+    cred_flavor: Vec<u8>, verf: Vec<u8>)->Result<Vec<u8>, super::GlusterError>{
         return pack_callheader(xid, prog, vers, proc_num as u32, cred_flavor, verf);
 }
 
 pub fn pack_cli_callheader(xid: u32, prog: i32, vers: u32, proc_num: GlusterCliCommand,
-    cred_flavor: Vec<u8>, verf: Vec<u8>)->Vec<u8>{
+    cred_flavor: Vec<u8>, verf: Vec<u8>)->Result<Vec<u8>, super::GlusterError>{
         return pack_callheader(xid, prog, vers, proc_num as u32, cred_flavor, verf);
 }
 
 fn pack_callheader(xid: u32, prog: i32, vers: u32, proc_num: u32,
-    cred_flavor: Vec<u8>, verf: Vec<u8>)->Vec<u8>{
-    let mut wr = XdrWriter::new();
+    cred_flavor: Vec<u8>, verf: Vec<u8>)->Result<Vec<u8>, super::GlusterError>{
+    let mut buffer:Vec<u8> = Vec::new();
 
-    wr.pack(xid);
-    wr.pack(CALL);
-    wr.pack(RPC_VERSION);
-    wr.pack(prog); // 1238463
-    wr.pack(vers); // 2
-    wr.pack(proc_num); // 3
-    let mut buffer = wr.into_buffer();
+    try!(buffer.write_u32::<BigEndian>(xid));
+    try!(buffer.write_i32::<BigEndian>(CALL));
+    try!(buffer.write_u32::<BigEndian>(RPC_VERSION));
+    try!(buffer.write_i32::<BigEndian>(prog));
+    try!(buffer.write_u32::<BigEndian>(vers));
+    try!(buffer.write_u32::<BigEndian>(proc_num));
 
     for byte in cred_flavor{
         buffer.push(byte);
     }
+
     for byte in verf{
         buffer.push(byte);
     }
     // Caller must add procedure-specific part of call
-    return buffer;
+    return Ok(buffer);
 }
 
 #[cfg(target_endian="little")]
@@ -824,7 +909,7 @@ pub fn unpack_replyheader<T: Read>(data: &mut T)->Result<(u32, GlusterAuth), sup
         //Parse auth_flavor into the enum
         let rpc_auth = GlusterAuth{
             flavor: AuthFlavor::new(auth_flavor),
-            stuff: stuff,
+            stuff: stuff.into_bytes(),
         };
         match accept_message{
             PROG_UNAVAIL => {
@@ -853,7 +938,7 @@ pub fn unpack_replyheader<T: Read>(data: &mut T)->Result<(u32, GlusterAuth), sup
     }
 }
 
-pub fn send_fragment<T: Write>(socket: &mut T, last: bool, fragment: &Vec<u8>)->Result<usize,String>{
+pub fn send_fragment<T: Write>(socket: &mut T, last: bool, fragment: &Vec<u8>)->Result<usize,super::GlusterError>{
     let mut header_buffer: Vec<u8> = Vec::new();
     let length: u32 = fragment.len() as u32;
 
@@ -873,19 +958,19 @@ pub fn send_fragment<T: Write>(socket: &mut T, last: bool, fragment: &Vec<u8>)->
     println!("Sending header");
     print_fragment(&header_buffer);
 
-    let mut bytes_written = try!(socket.write(&header_buffer).map_err(|e| e.to_string()));
+    let mut bytes_written = try!(socket.write(&header_buffer));
 
     println!("Fragment length: {}", fragment.len());
     println!("Sending fragment");
 
     print_fragment(&fragment);
 
-    bytes_written += try!(socket.write(fragment).map_err(|e| e.to_string()));
+    bytes_written += try!(socket.write(fragment));
     socket.flush().unwrap();
     return Ok(bytes_written);
 }
 
-pub fn sendrecord(sock: &mut UnixStream, record: &Vec<u8>)->Result<usize,String>{
+pub fn sendrecord(sock: &mut UnixStream, record: &Vec<u8>)->Result<usize,super::GlusterError>{
     let send_size = try!(send_fragment(sock, true, &record));
     return Ok(send_size);
 }

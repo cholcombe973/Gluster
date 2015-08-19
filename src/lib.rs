@@ -792,19 +792,28 @@ pub fn volume_info(volume: &str) -> Result<Volume, GlusterError> {
 //I don't need to know the volume name so long as quotas are enabled
 pub fn get_quota_usage(volume: &str)->Result<u64,GlusterError>{
     let xid = 1; //Transaction ID number.
-    let prog = 29852134; //I think this is a random # someone generated in the code
+    let prog = rpc::GLUSTER_QUOTA_PROGRAM_NUMBER;
     let vers = 1; //RPC version == 1
 
     let verf = rpc::GlusterAuth{
         flavor: rpc::AuthFlavor::AuthNull,
-        stuff: "".to_string(),
+        stuff: vec![0,0,0,0]
     };
     let verf_bytes = try!(verf.pack());
-    let cred_flavor = 390039; //Magic number == bad.  No idea where they got this #
-    let creds = rpc::pack_gluster_v2_cred(cred_flavor);
 
-    let mut call_bytes = rpc::pack_quota_callheader(
-        xid, prog, vers, rpc::GlusterAggregatorCommand::GlusterAggregatorGetlimit, creds, verf_bytes);
+    let creds = rpc::GlusterCred{
+        flavor: rpc::GLUSTER_V2_CRED_FLAVOR,
+        pid: 0,
+        uid: 0,
+        gid: 0,
+        groups: "".to_string(),
+        lock_owner: vec![0,0,0,0],
+    };
+    let cred_bytes = try!(creds.pack());
+
+    let mut call_bytes = try!(rpc::pack_quota_callheader(
+        xid, prog, vers,
+        rpc::GlusterAggregatorCommand::GlusterAggregatorGetlimit, cred_bytes, verf_bytes));
 
     let mut dict: HashMap<String,Vec<u8>> = HashMap::with_capacity(4);
 
@@ -834,7 +843,7 @@ pub fn get_quota_usage(volume: &str)->Result<u64,GlusterError>{
     let addr = Path::new("/var/run/gluster/quotad.socket");
     let mut sock = UnixStream::connect(&addr).unwrap();
 
-    let send_bytes = rpc::sendrecord(&mut sock, &call_bytes);
+    let send_bytes = try!(rpc::sendrecord(&mut sock, &call_bytes));
     let mut reply_bytes = try!(rpc::recvrecord(&mut sock));
 
     let mut cursor = Cursor::new(&mut reply_bytes[..]);
