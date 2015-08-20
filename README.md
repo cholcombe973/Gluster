@@ -6,3 +6,4 @@ welcome.
 #TODO
 1. Writing more unit tests
 2. Getting code coverage with kcov working 
+3. Getting additional RPC commands working. Some functions are working but only the ground work has been laid.
