@@ -451,7 +451,7 @@ pub fn get_local_ip()->Result<Ipv4Addr, GlusterError>{
     //192.168.1.1 dev wlan0  src 192.168.1.7
     let local_address_stdout = try!(String::from_utf8(src_address_output.stdout));
     let src_regex = Regex::new(r"(?P<src>src \S+)").unwrap();
-    let capture_output = match src_regex.captures(&local_address_stdout){//.unwrap().name("src");
+    let capture_output = match src_regex.captures(&local_address_stdout){
         Some(a) => a,
         None => {
             return Err(GlusterError::new(
@@ -873,7 +873,7 @@ pub fn volume_info(volume: &str) -> Result<Volume, GlusterError> {
     if !status.success(){
         debug!("Volume info get command failed");
         println!("Volume info get command failed with error: {}",
-            String::from_utf8(output.stdout).unwrap());
+            String::from_utf8_lossy(&output.stderr));
 
         //TODO: What is the appropriate error to report here?
         //The client is using this to figure out if it should make a volume
@@ -1094,7 +1094,7 @@ pub fn volume_add_quota(
     arg_list.push("quota".to_string());
     arg_list.push(volume.to_string());
     arg_list.push("limit-usage".to_string());
-    arg_list.push(path.to_str().unwrap().to_string());
+    arg_list.push(path.to_string_lossy().to_string());
     arg_list.push(size.to_string());
 
     return process_output(run_command("gluster", &arg_list, true, false));
