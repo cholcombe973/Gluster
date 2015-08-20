@@ -92,6 +92,7 @@ pub enum GlusterError{
     ParseError(uuid::ParseError),
     AddrParseError(String),
     ByteOrder(byteorder::Error),
+    RegexError(regex::Error),
     NoVolumesPresent,
 }
 
@@ -110,6 +111,7 @@ impl GlusterError{
             GlusterError::ParseError(_) => "Parse error".to_string(),
             GlusterError::AddrParseError(_) => "IP Address parsing error".to_string(),
             GlusterError::ByteOrder(ref err) => err.description().to_string(),
+            GlusterError::RegexError(ref err) => err.description().to_string(),
             GlusterError::NoVolumesPresent => "No volumes present".to_string(),
         }
     }
@@ -142,6 +144,12 @@ impl From<std::net::AddrParseError> for GlusterError {
 impl From<byteorder::Error> for GlusterError {
     fn from(err: byteorder::Error) -> GlusterError {
         GlusterError::ByteOrder(err)
+    }
+}
+
+impl From<regex::Error> for GlusterError {
+    fn from(err: regex::Error) -> GlusterError {
+        GlusterError::RegexError(err)
     }
 }
 
@@ -422,7 +430,7 @@ pub fn get_local_ip()->Result<Ipv4Addr, GlusterError>{
     let default_route_stdout: String = try!(String::from_utf8(cmd_output.stdout));
 
     //default via 192.168.1.1 dev wlan0  proto static
-    let addr_regex = Regex::new(r"(?P<addr>via \S+)").unwrap();
+    let addr_regex = try!(Regex::new(r"(?P<addr>via \S+)"));
     let default_route_parse = match addr_regex.captures(&default_route_stdout){
         Some(a) => a,
         None => {
@@ -450,7 +458,7 @@ pub fn get_local_ip()->Result<Ipv4Addr, GlusterError>{
     let src_address_output = run_command("ip", &arg_list, false, false);
     //192.168.1.1 dev wlan0  src 192.168.1.7
     let local_address_stdout = try!(String::from_utf8(src_address_output.stdout));
-    let src_regex = Regex::new(r"(?P<src>src \S+)").unwrap();
+    let src_regex = try!(Regex::new(r"(?P<src>src \S+)"));
     let capture_output = match src_regex.captures(&local_address_stdout){
         Some(a) => a,
         None => {
@@ -527,7 +535,7 @@ fn parse_peer_status(line: &String)-> Result<Vec<Peer>, GlusterError>{
     let mut peers: Vec<Peer> = Vec::new();
 
     //TODO: It's either this or some kinda crazy looping or batching
-    let peer_regex = Regex::new(r"Hostname:\s+(?P<hostname>[a-zA-Z0-9.]+)\s+Uuid:\s+(?P<uuid>\w+-\w+-\w+-\w+-\w+)\s+State:\s+(?P<state_detail>[a-zA-z ]+)\s+\((?P<state>\w+)\)").unwrap();
+    let peer_regex = try!(Regex::new(r"Hostname:\s+(?P<hostname>[a-zA-Z0-9.]+)\s+Uuid:\s+(?P<uuid>\w+-\w+-\w+-\w+-\w+)\s+State:\s+(?P<state_detail>[a-zA-z ]+)\s+\((?P<state>\w+)\)"));
     for cap in peer_regex.captures_iter(line){
         let hostname = try!(cap.name("hostname").ok_or(
             GlusterError::new(format!("Invalid hostname for peer: {}", line)))
@@ -813,7 +821,7 @@ fn parse_volume_info(volume: &str, output_str: String)->Result<Volume, GlusterEr
         if line.starts_with("Brick"){
             //Decend into parsing the brick list
             //need a regex here :(
-            let re = Regex::new(r"Brick\d+").unwrap();
+            let re = try!(Regex::new(r"Brick\d+"));
             if re.is_match(line){
                 let brick_str = split_and_return_field(1, line.to_string());
                 let brick_parts: Vec<&str> = brick_str.split(":").collect();
