@@ -423,10 +423,24 @@ pub fn get_local_ip()->Result<Ipv4Addr, GlusterError>{
 
     //default via 192.168.1.1 dev wlan0  proto static
     let addr_regex = Regex::new(r"(?P<addr>via \S+)").unwrap();
-    let x = addr_regex.captures(&default_route_stdout).unwrap().name("addr");
+    let default_route_parse = match addr_regex.captures(&default_route_stdout){
+        Some(a) => a,
+        None => {
+            return Err(GlusterError::new(
+                format!("Unable to parse default route from: {}", &default_route_stdout)));
+        }
+    };
+
+    let addr_raw = match default_route_parse.name("addr"){
+        Some(a) => a,
+        None => {
+            return Err(GlusterError::new(
+                format!("Unable to find addr default route from: {}", &default_route_stdout)));
+        }
+    };
 
     //Skip "via" in the capture
-    let addr: Vec<&str> = x.unwrap().split(" ").skip(1).collect();
+    let addr: Vec<&str> = addr_raw.split(" ").skip(1).collect();
 
     let mut arg_list: Vec<String>  = Vec::new();
     arg_list.push("route".to_string());
@@ -437,10 +451,24 @@ pub fn get_local_ip()->Result<Ipv4Addr, GlusterError>{
     //192.168.1.1 dev wlan0  src 192.168.1.7
     let local_address_stdout = try!(String::from_utf8(src_address_output.stdout));
     let src_regex = Regex::new(r"(?P<src>src \S+)").unwrap();
-    let capture_output = src_regex.captures(&local_address_stdout).unwrap().name("src");
+    let capture_output = match src_regex.captures(&local_address_stdout){//.unwrap().name("src");
+        Some(a) => a,
+        None => {
+            return Err(GlusterError::new(
+                format!("Unable to parse local_address from: {}", &local_address_stdout)));
+        }
+    };
+
+    let local_address_src =  match capture_output.name("src"){
+        Some(a) => a,
+        None => {
+            return Err(GlusterError::new(
+                format!("Unable to parse src from: {}", &local_address_stdout)));
+        }
+    };
 
     //Skip src in the capture
-    let local_ip: Vec<&str> = capture_output.unwrap().split(" ").skip(1).collect();
+    let local_ip: Vec<&str> = local_address_src.split(" ").skip(1).collect();
     let ip_addr = try!(local_ip[0].trim().parse::<Ipv4Addr>());
 
     return Ok(ip_addr);
