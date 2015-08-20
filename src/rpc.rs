@@ -1,3 +1,8 @@
+//! A module for communicating with Gluster over native RPC
+//!
+//! This contains a lot of helper functions to make communication less painful.
+//! This library should be considered experimental.  A lot of the RPC calls in Gluster are
+//! undocumented and this library is most likely missing information required for them to operate.
 extern crate byteorder;
 extern crate unix_socket;
 
@@ -7,8 +12,11 @@ use std::io::prelude::*;
 use std::collections::HashMap;
 use self::unix_socket::UnixStream;
 
+/// The magic number to use when communicating with Gluster and making CLI RPC requests
 pub const GLUSTER_CLI_PROGRAM_NUMBER: i32 = 1238463;
+/// The magic number for Gluster's v2 credential flavor
 pub const GLUSTER_V2_CRED_FLAVOR: i32 = 390039;
+/// The magic number to use when communicating with Gluster and making Quota RPC requests
 pub const GLUSTER_QUOTA_PROGRAM_NUMBER: i32 = 29852134;
 const RPC_VERSION: u32 = 2;
 const CALL: i32 = 0;
@@ -278,10 +286,12 @@ mod tests{
     }
 }
 
+/// This trait is for packing XDR information
 pub trait Pack{
     fn pack(&self) -> Result<Vec<u8>,super::GlusterError>;
 }
 
+/// This trait is for unpacking XDR encoded information
 pub trait UnPack{
     fn unpack<T: Read>(&mut T) -> Result<Self, super::GlusterError>;
 }
@@ -322,6 +332,7 @@ fn pack_string<T: Write>(s: &String, buffer: &mut T){
     }
 }
 
+/// Gluster authorization comes in 4 flavors as they call them.
 #[derive(Debug,Clone)]
 pub enum AuthFlavor{
     AuthNull = 0,
@@ -331,6 +342,7 @@ pub enum AuthFlavor{
 }
 
 impl AuthFlavor{
+    /// Returns a new AuthFlavor from the i32 given
     pub fn new(flavor: i32)->AuthFlavor{
         match flavor{
             0 => AuthFlavor::AuthNull,
@@ -342,12 +354,17 @@ impl AuthFlavor{
     }
 }
 
+/// Gluster CLI RPC requests contain an HashMap of parameters that differ for every translator
+/// being called.  Unfortunately they are not documented and I have not been able to decode many
+/// of them yet.  HashMap<String,Vec<u8>> was chosen because Gluster's dict values can be
+/// any number of variants such as an integer, string, etc.
 #[derive(Debug)]
 pub struct GlusterCliRequest{
     pub dict: HashMap<String,Vec<u8>>
 }
 
 impl Pack for GlusterCliRequest{
+    /// Pack the GlusterCliRequest into XDR
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         let dict_string: String = try!(serialize_dict(&self.dict));
@@ -358,6 +375,9 @@ impl Pack for GlusterCliRequest{
 
 impl UnPack for GlusterCliRequest{
     //Expects a cursor so calls can be chained
+    /// Unpack the GlusterCliRequest from XDR
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<R: Read>(data: &mut R)->Result<GlusterCliRequest, super::GlusterError>{
         let size = try!(data.read_u32::<BigEndian>());
         let mut s = try!(unpack_string(data, size)).into_bytes();
@@ -370,11 +390,16 @@ impl UnPack for GlusterCliRequest{
     }
 }
 
+/// Gluster returns a GlusterCliResponse for each RPC call made
 #[derive(Debug)]
 pub struct GlusterCliResponse{
+    /// Whether or not the call succeeded or failed
     pub op_ret: i32,
+    /// The error number
     pub op_errno: i32,
+    /// The error message
     pub op_errstr: String,
+    /// A HashMap of translator dependent return values
     pub dict: HashMap<String,Vec<u8>>
 }
 
@@ -391,6 +416,8 @@ impl Pack for GlusterCliResponse{
 }
 
 impl UnPack for GlusterCliResponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<R: Read>(data: &mut R)->Result<GlusterCliResponse, super::GlusterError>{
         let op_ret = try!(data.read_i32::<BigEndian>());
         let op_errno = try!(data.read_i32::<BigEndian>());
@@ -420,6 +447,8 @@ pub struct GlusterCliPeerListRequest{
 }
 
 impl Pack for GlusterCliPeerListRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         //XDRlib has a bug where it doesn't pad Strings correctly that are size 0
         let mut buffer: Vec<u8> = Vec::new();
@@ -431,6 +460,8 @@ impl Pack for GlusterCliPeerListRequest{
 }
 
 impl UnPack for GlusterCliPeerListRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<R: Read>(data: &mut R)->Result<GlusterCliPeerListRequest, super::GlusterError>{
         let flags = try!(data.read_i32::<BigEndian>());
 
@@ -458,6 +489,8 @@ pub struct GlusterCliPeerListResponse{
 }
 
 impl Pack for GlusterCliPeerListResponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.op_ret));
@@ -469,6 +502,8 @@ impl Pack for GlusterCliPeerListResponse{
 }
 
 impl UnPack for GlusterCliPeerListResponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<R: Read>(data: &mut R)->Result<GlusterCliPeerListResponse, super::GlusterError>{
         let op_ret = try!(data.read_i32::<BigEndian>());
         let op_errno = try!(data.read_i32::<BigEndian>());
@@ -492,6 +527,8 @@ pub struct GlusterCliFsmLogRequest{
 }
 
 impl Pack for GlusterCliFsmLogRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         pack_string(&self.name, &mut buffer);
@@ -500,6 +537,8 @@ impl Pack for GlusterCliFsmLogRequest{
 }
 
 impl UnPack for GlusterCliFsmLogRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<T: Read>(data: &mut T)->Result<GlusterCliFsmLogRequest, super::GlusterError>{
         let size = try!(data.read_u32::<BigEndian>());
         let name = try!(unpack_string(data, size));
@@ -519,6 +558,8 @@ pub struct GlusterCliFsmLogReponse{
 }
 
 impl Pack for GlusterCliFsmLogReponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.op_ret));
@@ -529,6 +570,8 @@ impl Pack for GlusterCliFsmLogReponse{
     }
 }
 impl UnPack for GlusterCliFsmLogReponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<T: Read>(data: &mut T)->Result<GlusterCliFsmLogReponse, super::GlusterError>{
         let op_ret = try!(data.read_i32::<BigEndian>());
         let op_errno = try!(data.read_i32::<BigEndian>());
@@ -555,6 +598,8 @@ pub struct GlusterCliGetwdRequest{
 }
 
 impl Pack for GlusterCliGetwdRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.unused));
@@ -563,6 +608,8 @@ impl Pack for GlusterCliGetwdRequest{
 }
 
 impl UnPack for GlusterCliGetwdRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<T: Read>(data: &mut T)->Result<GlusterCliGetwdRequest, super::GlusterError>{
         let unused = try!(data.read_i32::<BigEndian>());
         return Ok(GlusterCliGetwdRequest{
@@ -579,6 +626,8 @@ pub struct GlusterCliGetwdResponse{
 }
 
 impl Pack for GlusterCliGetwdResponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.op_ret));
@@ -589,6 +638,8 @@ impl Pack for GlusterCliGetwdResponse{
 }
 
 impl UnPack for GlusterCliGetwdResponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<T: Read>(data: &mut T)->Result<GlusterCliGetwdResponse, super::GlusterError>{
         let op_ret = try!(data.read_i32::<BigEndian>());
         let op_errno = try!(data.read_i32::<BigEndian>());
@@ -611,6 +662,8 @@ pub struct GlusterCliMountRequest{
 }
 
 impl Pack for GlusterCliMountRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         pack_string(&self.label, &mut buffer);
@@ -621,6 +674,8 @@ impl Pack for GlusterCliMountRequest{
 }
 
 impl UnPack for GlusterCliMountRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<R: Read>(data: &mut R)->Result<GlusterCliMountRequest, super::GlusterError>{
         let size = try!(data.read_u32::<BigEndian>());
         let label = try!(unpack_string(data, size));
@@ -645,6 +700,8 @@ pub struct GlusterCliMountResponse{
 }
 
 impl Pack for GlusterCliMountResponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.op_ret));
@@ -655,6 +712,8 @@ impl Pack for GlusterCliMountResponse{
 }
 
 impl UnPack for GlusterCliMountResponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<T: Read>(data: &mut T)->Result<GlusterCliMountResponse, super::GlusterError>{
         let op_ret = try!(data.read_i32::<BigEndian>());
         let op_errno = try!(data.read_i32::<BigEndian>());
@@ -677,6 +736,8 @@ pub struct GlusterCliUmountRequest{
 }
 
 impl Pack for GlusterCliUmountRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.lazy));
@@ -686,6 +747,8 @@ impl Pack for GlusterCliUmountRequest{
 }
 
 impl UnPack for GlusterCliUmountRequest{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<T: Read>(data: &mut T)->Result<GlusterCliUmountRequest, super::GlusterError>{
         let lazy = try!(data.read_i32::<BigEndian>());
 
@@ -706,6 +769,8 @@ pub struct GlusterCliUmountResponse{
 }
 
 impl Pack for GlusterCliUmountResponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.op_ret));
@@ -715,6 +780,8 @@ impl Pack for GlusterCliUmountResponse{
 }
 
 impl UnPack for GlusterCliUmountResponse{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn unpack<T: Read>(data: &mut T)->Result<GlusterCliUmountResponse, super::GlusterError>{
         let op_ret = try!(data.read_i32::<BigEndian>());
         let op_errno = try!(data.read_i32::<BigEndian>());
@@ -760,6 +827,8 @@ pub struct GlusterCred{
 }
 
 impl Pack for GlusterAuth{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.flavor.clone() as i32));
@@ -773,6 +842,8 @@ impl Pack for GlusterAuth{
 }
 
 impl Pack for GlusterCred{
+    /// # Failures
+    /// Returns GlusterError if unpacking fails
     fn pack(&self) -> Result<Vec<u8>, super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
 
@@ -799,37 +870,15 @@ impl Pack for GlusterCred{
     }
 }
 
-/*pub fn pack_gluster_v2_cred(flavor: i32)->Result<Vec<u8>, super::GlusterError>{
-    let mut buffer:Vec<u8> = Vec::new();
-    try!(buffer.write_i32::<BigEndian>(flavor));
-
-    //Experimental
-    try!(buffer.write_u32::<BigEndian>(self.pid));
-    try!(buffer.write_u32::<BigEndian>(self.uid));
-    try!(buffer.write_u32::<BigEndian>(self.gid));
-    pack_string(self.groups, &mut buffer);
-    pack_string(self.lock_owner, &mut buffer);
-    /*
-    try!(buffer.write_i32::<BigEndian>(24));
-    try!(buffer.write_i32::<BigEndian>(0));
-    try!(buffer.write_i32::<BigEndian>(0));
-    try!(buffer.write_i32::<BigEndian>(0));
-    try!(buffer.write_i32::<BigEndian>(0));
-    try!(buffer.write_i32::<BigEndian>(4));
-
-    //Test
-    //TODO: That works.  What are these two fields supposed to be??
-    try!(buffer.write_u32::<BigEndian>(0));
-    try!(buffer.write_u32::<BigEndian>(0));
-    */
-    return Ok(buffer);
-}
-*/
+/// # Failures
+/// Returns GlusterError if unpacking fails
 pub fn pack_quota_callheader(xid: u32, prog: i32, vers: u32, proc_num: GlusterAggregatorCommand,
     cred_flavor: Vec<u8>, verf: Vec<u8>)->Result<Vec<u8>, super::GlusterError>{
         return pack_callheader(xid, prog, vers, proc_num as u32, cred_flavor, verf);
 }
 
+/// # Failures
+/// Returns GlusterError if unpacking fails
 pub fn pack_cli_callheader(xid: u32, prog: i32, vers: u32, proc_num: GlusterCliCommand,
     cred_flavor: Vec<u8>, verf: Vec<u8>)->Result<Vec<u8>, super::GlusterError>{
         return pack_callheader(xid, prog, vers, proc_num as u32, cred_flavor, verf);
@@ -934,6 +983,8 @@ pub fn unpack_replyheader<T: Read>(data: &mut T)->Result<(u32, GlusterAuth), sup
     }
 }
 
+/// # Failures
+/// Returns GlusterError if any failure in sending occurs
 pub fn send_fragment<T: Write>(socket: &mut T, last: bool, fragment: &Vec<u8>)->Result<usize,super::GlusterError>{
     let mut header_buffer: Vec<u8> = Vec::new();
     let length: u32 = fragment.len() as u32;
@@ -949,7 +1000,7 @@ pub fn send_fragment<T: Write>(socket: &mut T, last: bool, fragment: &Vec<u8>)->
     //          (x>>8 & 0xff) + (x & 0xff);
     //Might be a better way to do this like writing to the socket directly
     //fragment.insert(0, header as u8);
-    header_buffer.write_u32::<BigEndian>(header as u32).unwrap();
+    try!(header_buffer.write_u32::<BigEndian>(header as u32));
 
     println!("Sending header");
     print_fragment(&header_buffer);
@@ -966,11 +1017,14 @@ pub fn send_fragment<T: Write>(socket: &mut T, last: bool, fragment: &Vec<u8>)->
     return Ok(bytes_written);
 }
 
+/// # Failures
+/// Returns GlusterError if any failure in sending occurs
 pub fn sendrecord(sock: &mut UnixStream, record: &Vec<u8>)->Result<usize,super::GlusterError>{
     let send_size = try!(send_fragment(sock, true, &record));
     return Ok(send_size);
 }
 
+/// Prints a hex encoded representation of the fragment. Very useful for debugging!
 pub fn print_fragment(frag: &Vec<u8>){
     for chunk in frag.chunks(4){
         for c in chunk{
@@ -981,10 +1035,11 @@ pub fn print_fragment(frag: &Vec<u8>){
     println!("");
 }
 
-/*
-    Uses a generic trait so that this function can be unit tested
-    by replaying captured data.
- */
+/// This reads a fragment from the network.
+/// Uses a generic trait so that this function can be unit tested
+/// by replaying captured data.
+/// # Failures
+/// Returns GlusterError if any failures occur
 pub fn recv_fragment<T: Read>(socket: &mut T)-> Result<(bool, Vec<u8>), super::GlusterError>{
     //Read at most 4 bytes
     let mut buffer: Vec<u8> = Vec::new();
@@ -1013,6 +1068,11 @@ pub fn recv_fragment<T: Read>(socket: &mut T)-> Result<(bool, Vec<u8>), super::G
     return Ok((last, fragment));
 }
 
+/// This reads a record from a UnixStream.  It is meant to be used to interface with Gluster over
+/// a unix socket.  Future upgrades to this function will make it more generic so that
+/// tcp and unix sockets or replayed data can be used.
+/// # Failures
+/// Returns GlusterError if any failures occur
 pub fn recvrecord(sock: &mut UnixStream)->Result<Vec<u8>, super::GlusterError>{
     let mut record:Vec<u8> = Vec::new();
     let mut last = false;
@@ -1026,7 +1086,7 @@ pub fn recvrecord(sock: &mut UnixStream)->Result<Vec<u8>, super::GlusterError>{
     return Ok(record);
 }
 
-//Used to get the Quota Information from the quotad server
+/// Used to get the Quota Information from the quotad server
 #[derive(Debug)]
 pub enum GlusterAggregatorCommand{
     GlusterAggregatorNull = 0,
@@ -1035,6 +1095,7 @@ pub enum GlusterAggregatorCommand{
     GlusterAggregatorMaxvalue = 3,
 }
 
+/// All the possible CLI RPC calls that are available.  So far I have only tested GlusterCliListFriends
 #[derive(Debug)]
 pub enum GlusterCliCommand {
     GlusterCliNull = 0,
@@ -1104,15 +1165,15 @@ fn unpack_value<T: Read>(data: &mut T, size: u32, skip_null: bool)->Result<Vec<u
     return Ok(buffer);
 }
 
-/*
-Serialization format:
- -------- --------  --------  ----------- -------------
-|  count | key len | val len | key     \0| value
- ---------------------------------------- -------------
- 4        4         4       <key len>   <value len>
- //NOTE keys are NULL terminated but not value's
-*/
-//Takes a HashMap and a buffer to serialize the HashMap into
+/// Takes a HashMap and a buffer to serialize the HashMap into
+///
+/// Serialization format from Glusters header file:
+/// -------- --------  --------  ----------- -------------
+/// |  count | key len | val len | key     \0| value
+///  ---------------------------------------- -------------
+/// 4        4         4       <key len>   <value len>
+///
+/// NOTE keys are NULL terminated but not value's
 pub fn serialize_dict(dict: &HashMap<String,Vec<u8>>)->Result<String,super::GlusterError>{
     //Maybe the problem is that this whole thing is supposed to be packed into a string
     //yeah... that could be it.  I'm writing the raw shit to the wire when I should be

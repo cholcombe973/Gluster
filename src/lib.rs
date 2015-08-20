@@ -1,3 +1,12 @@
+//! This is a library to interface with [Gluster](https://gluster.readthedocs.org/en/latest/)
+//!
+//! Most of the commands below are wrappers around the CLI functionality.  However recently I have
+//! reverse engineered some of the Gluster RPC protocol so that calls can be made directly against
+//! the Gluster server.  This method of communication is much faster than shelling out.
+//!
+//! Scale testing with this library has been done to about 60 servers successfully.
+//!
+//! Please file any bugs found at: [Gluster Repo](https://github.com/cholcombe973/Gluster)
 mod rpc;
 extern crate byteorder;
 extern crate regex;
@@ -136,12 +145,14 @@ impl From<byteorder::Error> for GlusterError {
     }
 }
 
+/// A Gluster Brick consists of a Peer and a path to the mount point
 pub struct Brick {
     pub peer: Peer,
     pub path: PathBuf,
 }
 
 impl Brick{
+    /// Returns a String representation of the selected enum variant.
     pub fn to_string(&self) -> String{
         format!("{}:{}", self.peer.hostname.clone(), self.path.to_str().unwrap())
     }
@@ -153,6 +164,7 @@ impl fmt::Debug for Brick {
     }
 }
 
+/// A enum representing the possible States that a Peer can be in
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum State {
     Connected,
@@ -173,6 +185,7 @@ pub enum State {
 }
 
 impl State {
+    /// Create a new State object from a &str
     pub fn new(name: &str)->State{
         match name.trim().to_ascii_lowercase().as_ref() {
             "connected" => State::Connected,
@@ -191,6 +204,7 @@ impl State {
             _ => State::Unknown,
         }
     }
+    /// Return a string representation of the State
     pub fn to_string(self) -> String {
         match self {
             State::Connected => "Connected".to_string(),
@@ -219,10 +233,13 @@ pub struct Quota{
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Peer {
-   pub uuid: Uuid,
-   //TODO: Lets stay with ip addresses.
-   pub hostname: String,
-   pub status: State,
+    /// The unique identifer of this peer
+    pub uuid: Uuid,
+    //TODO: Lets stay with ip addresses.
+    /// The hostname or IP address of the peer
+    pub hostname: String,
+    ///  The current State of the peer
+    pub status: State,
 }
 
 impl fmt::Debug for Peer {
@@ -234,11 +251,31 @@ impl fmt::Debug for Peer {
     }
 }
 
+/// An enum to select the transport method Gluster should use for the Volume
 #[derive(Debug, Clone)]
 pub enum Transport {
     Tcp,
     Rdma,
     TcpAndRdma,
+}
+
+impl Transport {
+    fn new(name: &str)->Transport{
+        match name.trim().to_ascii_lowercase().as_ref() {
+            "tcp" => Transport::Tcp,
+            "tcp,rdma" => Transport::TcpAndRdma,
+            "rdma" => Transport::Rdma,
+            _ => Transport::Tcp,
+        }
+    }
+    /// Returns a String representation of the selected enum variant.
+    fn to_string(self) -> String {
+        match self {
+            Transport::Rdma => "rdma".to_string(),
+            Transport::Tcp => "tcp".to_string(),
+            Transport::TcpAndRdma => "tcp,rdma".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -250,6 +287,7 @@ pub enum VolumeTranslator{
 }
 
 impl VolumeTranslator{
+    /// Returns a String representation of the selected enum variant.
     fn to_string(self) -> String {
         match self {
             VolumeTranslator::Stripe => "stripe".to_string(),
@@ -260,6 +298,10 @@ impl VolumeTranslator{
     }
 }
 
+/// These are all the different Volume types that are possible in Gluster
+/// Note: Tier is not represented here because I'm waiting for it to become more stable
+/// For more information about these types see: [Gluster Volume]
+/// (https://gluster.readthedocs.org/en/latest/Administrator%20Guide/Setting%20Up%20Volumes/)
 #[derive(Debug)]
 pub enum VolumeType {
     Distribute,
@@ -275,6 +317,7 @@ pub enum VolumeType {
 }
 
 impl VolumeType {
+    /// Constructs a new VolumeType from a &str
     pub fn new(name: &str)->VolumeType{
         match name.trim().to_ascii_lowercase().as_ref() {
             "distribute" => VolumeType::Distribute,
@@ -290,6 +333,7 @@ impl VolumeType {
             _ => VolumeType::Replicate,
         }
     }
+    /// Returns a String representation of the selected enum variant.
     pub fn to_string(self) -> String {
         match self {
             VolumeType::Distribute => "Distribute".to_string(),
@@ -308,30 +352,17 @@ impl VolumeType {
 
 #[derive(Debug)]
 pub struct Volume {
+    /// The name of the volume
     pub name: String,
+    /// The type of the volume
     pub vol_type: VolumeType,
+    /// The unique id of the volume
     pub id: Uuid,
     pub status: String,
+    /// The underlying Transport mechanism
     pub transport: Transport,
+    /// A Vec containing all the Brick's that are in the Volume
     pub bricks: Vec<Brick>,
-}
-
-impl Transport {
-    fn new(name: &str)->Transport{
-        match name.trim().to_ascii_lowercase().as_ref() {
-            "tcp" => Transport::Tcp,
-            "tcp,rdma" => Transport::TcpAndRdma,
-            "rdma" => Transport::Rdma,
-            _ => Transport::Tcp,
-        }
-    }
-    fn to_string(self) -> String {
-        match self {
-            Transport::Rdma => "rdma".to_string(),
-            Transport::Tcp => "tcp".to_string(),
-            Transport::TcpAndRdma => "tcp,rdma".to_string(),
-        }
-    }
 }
 
 fn process_output(output: std::process::Output)->Result<i32, GlusterError>{
@@ -377,6 +408,10 @@ fn run_command(command: &str, arg_list: &Vec<String>, as_root: bool, script_mode
 }
 
 //TODO: figure out a better way to do this.  This seems hacky
+/// Returns the local IPv4Addr address associated with this server
+/// # Failures
+/// Returns a GlusterError representing any failure that may have happened while trying to
+/// query this information.
 pub fn get_local_ip()->Result<Ipv4Addr, GlusterError>{
     let mut default_route: Vec<String>  = Vec::new();
     default_route.push("route".to_string());
@@ -411,6 +446,7 @@ pub fn get_local_ip()->Result<Ipv4Addr, GlusterError>{
     return Ok(ip_addr);
 }
 
+/// Resolves a &str hostname into a ip address.
 pub fn resolve_to_ip(address: &str)->Result<String, String>{
     if address == "localhost"{
         let local_ip = try!(get_local_ip().map_err(|e| e.to_string()));
@@ -436,6 +472,7 @@ pub fn resolve_to_ip(address: &str)->Result<String, String>{
     }
 }
 
+/// A function to get the information from /etc/hostname
 pub fn get_local_hostname()->Result<String, GlusterError>{
     let mut f = try!(File::open("/etc/hostname"));
     let mut s = String::new();
@@ -443,6 +480,9 @@ pub fn get_local_hostname()->Result<String, GlusterError>{
     return Ok(s.trim().to_string());
 }
 
+/// This will query the Gluster peer list and return a Peer struct for the peer
+/// # Failures
+/// Returns GlusterError if the peer could not be found
 pub fn get_peer(hostname: &String) ->Result<Peer, GlusterError>{
     let peer_list = try!(peer_list());
 
@@ -503,6 +543,9 @@ fn parse_peer_status(line: &String)-> Result<Vec<Peer>, GlusterError>{
     return Ok(peers);
 }
 
+/// Runs gluster peer status and returns a Vec<Peer> representing all the peers in the cluster
+/// # Failures
+/// Returns GlusterError if the command failed to run
 pub fn peer_status() ->Result<Vec<Peer>, GlusterError>{
     let mut arg_list: Vec<String>  = Vec::new();
     arg_list.push("peer".to_string());
@@ -521,6 +564,10 @@ pub fn peer_status() ->Result<Vec<Peer>, GlusterError>{
 }
 
 //List all peers including localhost
+/// Runs gluster pool list and returns a Vec<Peer> representing all the peers in the cluster
+/// This also returns information for the localhost as a Peer.  peer_status() does not
+/// # Failures
+/// Returns GlusterError if the command failed to run
 pub fn peer_list() ->Result<Vec<Peer>, GlusterError>{
     let mut peers: Vec<Peer> = Vec::new();
     let mut arg_list: Vec<String>  = Vec::new();
@@ -563,6 +610,9 @@ return Ok(peers);
 }
 
 //Probe a peer and prevent double probing
+/// Adds a new peer to the cluster by hostname or ip address
+/// # Failures
+/// Returns GlusterError if the command failed to run
 pub fn peer_probe(hostname: &String)->Result<i32, GlusterError>{
     let current_peers = try!(peer_list());
     for peer in current_peers{
@@ -580,6 +630,9 @@ pub fn peer_probe(hostname: &String)->Result<i32, GlusterError>{
     return process_output(run_command("gluster", &arg_list, true, false));
 }
 
+/// Removes a peer from the cluster by hostname or ip address
+/// # Failures
+/// Returns GlusterError if the command failed to run
 pub fn peer_remove(hostname: &String, force: bool)->Result<i32, GlusterError>{
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("peer".to_string());
@@ -604,6 +657,14 @@ fn split_and_return_field(field_number: usize, string: String) -> String{
 }
 
 //Note this will panic on failure to parse u64
+/// This is a helper function to convert values such as 1PB into a bytes
+/// # Examples
+/// ```
+/// extern crate gluster;
+/// let bytes = gluster::translate_to_bytes("1GB").unwrap();
+/// assert_eq!(bytes, 1073741824);
+/// ```
+
 pub fn translate_to_bytes(value: &str) -> Option<u64> {
     if value.ends_with("PB"){
         match value.trim_right_matches("PB").parse::<u64>(){
@@ -640,7 +701,10 @@ pub fn translate_to_bytes(value: &str) -> Option<u64> {
     }
 }
 
-//Lists all available volume names
+/// Lists all available volume names.
+/// # Failures
+/// Will return None if the Volume list command failed or if volume could not be transformed
+/// into a String from utf8
 pub fn volume_list()->Option<Vec<String>>{
     let mut arg_list: Vec<String>  = Vec::new();
     arg_list.push("volume".to_string());
@@ -767,6 +831,9 @@ fn parse_volume_info(volume: &str, output_str: String)->Result<Volume, GlusterEr
     return Ok(vol_info);
 }
 
+/// Returns a Volume with all available information on the volume
+/// # Failures
+/// Will return GlusterError if the command failed to run.
 pub fn volume_info(volume: &str) -> Result<Volume, GlusterError> {
     let mut arg_list: Vec<String>  = Vec::new();
     arg_list.push("volume".to_string());
@@ -789,7 +856,12 @@ pub fn volume_info(volume: &str) -> Result<Volume, GlusterError> {
     return parse_volume_info(&volume, output_str);
 }
 
-//I don't need to know the volume name so long as quotas are enabled
+/// Returns a u64 representing the bytes used on the volume.
+/// Note: This uses my brand new RPC library.  Some bugs may exist so use caution.  This does not
+/// shell out and therefore should be significantly faster.  It also suffers far less hang conditions
+/// than the CLI version.
+/// # Failures
+/// Will return GlusterError if the RPC fails
 pub fn get_quota_usage(volume: &str)->Result<u64,GlusterError>{
     let xid = 1; //Transaction ID number.
     let prog = rpc::GLUSTER_QUOTA_PROGRAM_NUMBER;
@@ -817,6 +889,7 @@ pub fn get_quota_usage(volume: &str)->Result<u64,GlusterError>{
 
     let mut dict: HashMap<String,Vec<u8>> = HashMap::with_capacity(4);
 
+    //TODO: Make a Gluster wd RPC call and parse this from the quota.conf file
     //This is crap
     let mut gfid = "00000000-0000-0000-0000-000000000001".to_string().into_bytes();
     gfid.push(0); //Null Terminate
@@ -840,8 +913,9 @@ pub fn get_quota_usage(volume: &str)->Result<u64,GlusterError>{
         call_bytes.push(byte);
     }
 
+    //Ok.. we need to hunt down the quota socket file ..crap..
     let addr = Path::new("/var/run/gluster/quotad.socket");
-    let mut sock = UnixStream::connect(&addr).unwrap();
+    let mut sock = try!(UnixStream::connect(&addr));
 
     let send_bytes = try!(rpc::sendrecord(&mut sock, &call_bytes));
     let mut reply_bytes = try!(rpc::recvrecord(&mut sock));
@@ -869,7 +943,7 @@ pub fn get_quota_usage(volume: &str)->Result<u64,GlusterError>{
     return Ok(usage);
 }
 
-//Return a list of quotas on the volume if any
+/// Return a list of quotas on the volume if any
 pub fn quota_list(volume: &str)->Option<Vec<Quota>>{
 /*
   ThinkPad-T410s:~# gluster vol quota test list
@@ -953,6 +1027,9 @@ pub fn quota_list(volume: &str)->Option<Vec<Quota>>{
     return Some(quota_list);
 }
 
+/// Enable quotas on the volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_enable_quotas(volume: &str)->Result<i32, GlusterError>{
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("volume".to_string());
@@ -963,6 +1040,9 @@ pub fn volume_enable_quotas(volume: &str)->Result<i32, GlusterError>{
     return process_output(run_command("gluster", &arg_list, true, false));
 }
 
+/// Disable quotas on the volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_disable_quotas(volume: &str)->Result<i32, GlusterError>{
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("volume".to_string());
@@ -973,6 +1053,9 @@ pub fn volume_disable_quotas(volume: &str)->Result<i32, GlusterError>{
     return process_output(run_command("gluster", &arg_list, true, false));
 }
 
+/// Adds a size quota to the volume and path.
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_add_quota(
     volume: &str,
     path: PathBuf,
@@ -1001,6 +1084,9 @@ fn ok_to_remove()->bool{
     return true;
 }
 
+/// This will remove a brick from the volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_remove_brick(volume: &str,
     bricks: Vec<Brick>,
     force: bool) -> Result<i32, GlusterError>{
@@ -1028,6 +1114,9 @@ pub fn volume_remove_brick(volume: &str,
 
 //volume add-brick <VOLNAME> [<stripe|replica> <COUNT>]
 //<NEW-BRICK> ... [force] - add brick to volume <VOLNAME>
+/// This adds a new brick to the volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_add_brick(volume: &str,
     bricks: Vec<Brick>,
     force: bool) -> Result<i32,GlusterError> {
@@ -1050,6 +1139,9 @@ pub fn volume_add_brick(volume: &str,
     return process_output(run_command("gluster", &arg_list, true, true));
 }
 
+/// Once a volume is created it needs to be started.  This starts the volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_start(volume: &str, force: bool) -> Result<i32, GlusterError>{
     //Should I check the volume exists first?
     let mut arg_list: Vec<String> = Vec::new();
@@ -1063,6 +1155,9 @@ pub fn volume_start(volume: &str, force: bool) -> Result<i32, GlusterError>{
     return process_output(run_command("gluster", &arg_list, true, true));
 }
 
+/// This stops a running volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_stop(volume: &str, force: bool) -> Result<i32, GlusterError>{
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("volume".to_string());
@@ -1075,6 +1170,9 @@ pub fn volume_stop(volume: &str, force: bool) -> Result<i32, GlusterError>{
     return process_output(run_command("gluster", &arg_list, true, true));
 }
 
+/// This deletes a stopped volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_delete(volume: &str) -> Result<i32, GlusterError>{
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("volume".to_string());
@@ -1084,6 +1182,8 @@ pub fn volume_delete(volume: &str) -> Result<i32, GlusterError>{
     return process_output(run_command("gluster", &arg_list, true, true));
 }
 
+/// This function doesn't do anything yet.  It is a place holder because volume_rebalance
+/// is a long running command and I haven't decided how to poll for completion yet
 pub fn volume_rebalance(volume: &str){
     //Usage: volume rebalance <VOLNAME> {{fix-layout start} | {start [force]|stop|status}}
 }
@@ -1128,6 +1228,9 @@ fn volume_create<T: ToString>(volume: &str,
 }
 
 
+/// This creates a new replicated volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_create_replicated(volume: &str,
     replica_count: usize,
     transport: Transport,
@@ -1140,6 +1243,9 @@ pub fn volume_create_replicated(volume: &str,
     return volume_create(volume, volume_translators, &transport, bricks, force);
 }
 
+/// This creates a new striped volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_create_striped(volume: &str,
     stripe: usize,
     transport: Transport,
@@ -1152,6 +1258,9 @@ pub fn volume_create_striped(volume: &str,
     return volume_create(volume, volume_translators, &transport, bricks, force);
 }
 
+/// This creates a new striped and replicated volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_create_striped_replicated(volume: &str,
     stripe: usize,
     replica: usize,
@@ -1166,6 +1275,9 @@ pub fn volume_create_striped_replicated(volume: &str,
     return volume_create(volume, volume_translators, &transport, bricks, force);
 }
 
+/// This creates a new distributed volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_create_distributed(volume: &str,
     transport: Transport,
     bricks: Vec<Brick>,
@@ -1177,6 +1289,9 @@ pub fn volume_create_distributed(volume: &str,
 
 }
 
+/// This creates a new erasure coded volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
 pub fn volume_create_erasure(volume: &str,
     disperse: usize,
     redundancy: usize,
