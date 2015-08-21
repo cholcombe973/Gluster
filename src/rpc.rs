@@ -1002,15 +1002,15 @@ pub fn send_fragment<T: Write>(socket: &mut T, last: bool, fragment: &Vec<u8>)->
     //fragment.insert(0, header as u8);
     try!(header_buffer.write_u32::<BigEndian>(header as u32));
 
-    println!("Sending header");
-    print_fragment(&header_buffer);
+    //println!("Sending header");
+    //print_fragment(&header_buffer);
 
     let mut bytes_written = try!(socket.write(&header_buffer));
 
-    println!("Fragment length: {}", fragment.len());
-    println!("Sending fragment");
+    //println!("Fragment length: {}", fragment.len());
+    //println!("Sending fragment");
 
-    print_fragment(&fragment);
+    //print_fragment(&fragment);
 
     bytes_written += try!(socket.write(fragment));
     socket.flush().unwrap();
@@ -1064,7 +1064,7 @@ pub fn recv_fragment<T: Read>(socket: &mut T)-> Result<(bool, Vec<u8>), super::G
         try!(handle.read_to_end(&mut fragment));
         n = n - n;
     }
-    print_fragment(&fragment);
+    //print_fragment(&fragment);
     return Ok((last, fragment));
 }
 
