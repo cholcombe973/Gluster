@@ -162,7 +162,7 @@ pub struct Brick {
 impl Brick{
     /// Returns a String representation of the selected enum variant.
     pub fn to_string(&self) -> String{
-        format!("{}:{}", self.peer.hostname.clone(), self.path.to_str().unwrap())
+        format!("{}:{}", self.peer.hostname.clone(), self.path.to_string_lossy())
     }
 }
 

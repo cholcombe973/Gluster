@@ -315,21 +315,22 @@ fn unpack_dict_bytes<T: Read>(data: &mut T, size: u32)->Result<Vec<u8>,super::Gl
     return Ok(buffer);
 }
 
-fn pack_string<T: Write>(s: &String, buffer: &mut T){
+fn pack_string<T: Write>(s: &String, buffer: &mut T)->Result<(), super::GlusterError>{
     let bytes = s.clone().into_bytes();
     let bytes_len = bytes.len();
     let pad = (4- (bytes_len % 4)) % 4;
 
-    buffer.write_u32::<BigEndian>(bytes_len as u32).unwrap();
+    try!(buffer.write_u32::<BigEndian>(bytes_len as u32));
 
     for byte in bytes{
-        buffer.write_u8(byte).unwrap();
+        try!(buffer.write_u8(byte));
     }
 
     //Padding
     for _ in 0..pad{
-        buffer.write_u8(0).unwrap();
+        try!(buffer.write_u8(0));
     }
+    return Ok(());
 }
 
 /// Gluster authorization comes in 4 flavors as they call them.
@@ -368,7 +369,7 @@ impl Pack for GlusterCliRequest{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         let dict_string: String = try!(serialize_dict(&self.dict));
-        pack_string(&dict_string, &mut buffer);
+        try!(pack_string(&dict_string, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -406,11 +407,11 @@ pub struct GlusterCliResponse{
 impl Pack for GlusterCliResponse{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer: Vec<u8> = Vec::new();
-        buffer.write_i32::<BigEndian>(self.op_ret).unwrap();
-        buffer.write_i32::<BigEndian>(self.op_errno).unwrap();
-        pack_string(&self.op_errstr, &mut buffer);
+        try!(buffer.write_i32::<BigEndian>(self.op_ret));
+        try!(buffer.write_i32::<BigEndian>(self.op_errno));
+        try!(pack_string(&self.op_errstr, &mut buffer));
         let dict_string = try!(serialize_dict(&self.dict));
-        pack_string(&dict_string, &mut buffer);
+        try!(pack_string(&dict_string, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -454,7 +455,7 @@ impl Pack for GlusterCliPeerListRequest{
         let mut buffer: Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.flags));
         let dict_string = try!(serialize_dict(&self.dict));
-        pack_string(&dict_string, &mut buffer);
+        try!(pack_string(&dict_string, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -496,7 +497,7 @@ impl Pack for GlusterCliPeerListResponse{
         try!(buffer.write_i32::<BigEndian>(self.op_ret));
         try!(buffer.write_i32::<BigEndian>(self.op_errno));
         let dict_string = try!(serialize_dict(&self.friends));
-        pack_string(&dict_string, &mut buffer);
+        try!(pack_string(&dict_string, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -531,7 +532,7 @@ impl Pack for GlusterCliFsmLogRequest{
     /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
-        pack_string(&self.name, &mut buffer);
+        try!(pack_string(&self.name, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -564,8 +565,8 @@ impl Pack for GlusterCliFsmLogReponse{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.op_ret));
         try!(buffer.write_i32::<BigEndian>(self.op_errno));
-        pack_string(&self.op_errstr, &mut buffer);
-        pack_string(&self.fsm_log, &mut buffer);
+        try!(pack_string(&self.op_errstr, &mut buffer));
+        try!(pack_string(&self.fsm_log, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -632,7 +633,7 @@ impl Pack for GlusterCliGetwdResponse{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.op_ret));
         try!(buffer.write_i32::<BigEndian>(self.op_errno));
-        pack_string(&self.wd, &mut buffer);
+        try!(pack_string(&self.wd, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -666,9 +667,9 @@ impl Pack for GlusterCliMountRequest{
     /// Returns GlusterError if unpacking fails
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
-        pack_string(&self.label, &mut buffer);
+        try!(pack_string(&self.label, &mut buffer));
         let dict_string = try!(serialize_dict(&self.dict));
-        pack_string(&dict_string, &mut buffer);
+        try!(pack_string(&dict_string, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -706,7 +707,7 @@ impl Pack for GlusterCliMountResponse{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.op_ret));
         try!(buffer.write_i32::<BigEndian>(self.op_errno));
-        pack_string(&self.path, &mut buffer);
+        try!(pack_string(&self.path, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -741,7 +742,7 @@ impl Pack for GlusterCliUmountRequest{
     fn pack(&self)->Result<Vec<u8>,super::GlusterError>{
         let mut buffer:Vec<u8> = Vec::new();
         try!(buffer.write_i32::<BigEndian>(self.lazy));
-        pack_string(&self.path, &mut buffer);
+        try!(pack_string(&self.path, &mut buffer));
         return Ok(buffer);
     }
 }
@@ -855,7 +856,7 @@ impl Pack for GlusterCred{
         try!(buffer.write_u32::<BigEndian>(self.pid)); //4
         try!(buffer.write_u32::<BigEndian>(self.uid)); //8
         try!(buffer.write_u32::<BigEndian>(self.gid)); //12
-        pack_string(&self.groups, &mut buffer); //16?
+        try!(pack_string(&self.groups, &mut buffer)); //16?
 
         //lock_owner length
         try!(buffer.write_u32::<BigEndian>(4)); //12
@@ -1013,7 +1014,7 @@ pub fn send_fragment<T: Write>(socket: &mut T, last: bool, fragment: &Vec<u8>)->
     //print_fragment(&fragment);
 
     bytes_written += try!(socket.write(fragment));
-    socket.flush().unwrap();
+    try!(socket.flush());
     return Ok(bytes_written);
 }
 
