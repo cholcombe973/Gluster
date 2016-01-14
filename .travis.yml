@@ -1,12 +1,57 @@
+sudo: false
 language: rust
-after_success: |
-  [ $TRAVIS_BRANCH = master ] &&
-  [ $TRAVIS_PULL_REQUEST = false ] &&
-  cargo doc &&
-  echo "<meta http-equiv=refresh content=0;url=`echo gluster | cut -d '/' -f 2`/index.html>" > target/doc/index.html &&
-  sudo pip install ghp-import &&
-  ghp-import -n target/doc &&
-  git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+rust:
+  - nightly
+  - beta
+  - stable
+
+matrix:
+  allow_failures:
+    - rust:
+      - nightly
+# load travis-cargo
+before_script:
+  - |
+      pip install 'travis-cargo<0.2' --user &&
+      export PATH=$HOME/.local/bin:$PATH
+
+# the main build
+script:
+  - |
+      travis-cargo build &&
+      travis-cargo test &&
+      travis-cargo bench &&
+      travis-cargo --only stable doc
+after_success:
+  # upload the documentation from the build with stable (automatically only actually
+  # runs on the master branch, not individual PRs)
+  - travis-cargo --only stable doc-upload
+  # measure code coverage and upload to coveralls.io (the verify
+  # argument mitigates kcov crashes due to malformed debuginfo, at the
+  # cost of some speed <https://github.com/huonw/travis-cargo/issues/12>)
+  - travis-cargo coveralls --no-sudo --verify
+
 env:
   global:
-    secure: ireR0kL9GO5X6/luUxevogIPUCJn8K7SguNdTRWvMtbnPXtPBzEwmxOvukRfon/NVWQ5l2fOGD7XLtrLccmk0oplflzws1tU2jNv0SZzCG2FRI2qpBg2QHu82jOR2KWMx/VNJriiRE6v6n3g/KhQrM2xCqP68SoAIzn5n3e761o56fjky/trs1iQmp8unTOfFBaBWOwOfpgQvWXV6WB8VUnmGxbATWJZiFdECTQqZYCmNc+K2EGQWLKwCGPUQ2atymCtVV0B1UeiVRy4zQV1Cegn+2ZZrPtOsltLcSCQizn3BI7ejr/WCHYJUwNqj6ezNNJpky2LUV2MQ0OpevroPvH6K1W6JYjR1gixNcG2UQMFn53rwyHyP83pBWAq1+MuU0W6sCHN2CY1EmO93xJN8tK1hGzbpZTvVWuQeU/87m5i2c3KPawRSKEogPDaAh9jZV8wyYpsQ76Y93/fdkIPJevtqll2xHyesZkYmif2qyRKq8oq5PPrFM0Sk76HYhmWmgqQAgeS4azoVfOBl1v1NeVCJlKJjY52ox64QFGBjAButt7bIhbVs8C5VDIM3Lz9f4Iw1qVGhPFxCEc98UXRyqs6ADm9nuPU8OJ1gka9yNi5eyFdx8rI5b/ENx4s4LIVkT1OtoGYO1xvBvMIiMbx0u9NKsFmLw17nzzdFmwHXCs=
+    # override the default `--features unstable` used for the nightly branch (optional)
+    - TRAVIS_CARGO_NIGHTLY_FEATURE=nightly
+    # encrypted github token for doc upload (see `GH_TOKEN` link above)
+    - secure: "ireR0kL9GO5X6/luUxevogIPUCJn8K7SguNdTRWvMtbnPXtPBzEwmxOvukRfon/NVWQ5l2fOGD7XLtrLccmk0oplflzws1tU2jNv0SZzCG2FRI2qpBg2QHu82jOR2KWMx/VNJriiRE6v6n3g/KhQrM2xCqP68SoAIzn5n3e761o56fjky/trs1iQmp8unTOfFBaBWOwOfpgQvWXV6WB8VUnmGxbATWJZiFdECTQqZYCmNc+K2EGQWLKwCGPUQ2atymCtVV0B1UeiVRy4zQV1Cegn+2ZZrPtOsltLcSCQizn3BI7ejr/WCHYJUwNqj6ezNNJpky2LUV2MQ0OpevroPvH6K1W6JYjR1gixNcG2UQMFn53rwyHyP83pBWAq1+MuU0W6sCHN2CY1EmO93xJN8tK1hGzbpZTvVWuQeU/87m5i2c3KPawRSKEogPDaAh9jZV8wyYpsQ76Y93/fdkIPJevtqll2xHyesZkYmif2qyRKq8oq5PPrFM0Sk76HYhmWmgqQAgeS4azoVfOBl1v1NeVCJlKJjY52ox64QFGBjAButt7bIhbVs8C5VDIM3Lz9f4Iw1qVGhPFxCEc98UXRyqs6ADm9nuPU8OJ1gka9yNi5eyFdx8rI5b/ENx4s4LIVkT1OtoGYO1xvBvMIiMbx0u9NKsFmLw17nzzdFmwHXCs="
+
+#after_success: |
+#  [ $TRAVIS_BRANCH = master ] &&
+#  [ $TRAVIS_PULL_REQUEST = false ] &&
+#  cargo doc &&
+#  echo "<meta http-equiv=refresh content=0;url=`echo gluster | cut -d '/' -f 2`/index.html>" > target/doc/index.html &&
+#  sudo pip install ghp-import &&
+#  ghp-import -n target/doc &&
+#  git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+#env:
+#  global:
+#    secure: 
