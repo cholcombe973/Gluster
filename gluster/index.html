@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `gluster` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, gluster">
+
+    <title>gluster - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'gluster', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>gluster</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-0' class='srclink' href='../src/gluster/lib.rs.html#1-1371' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>This is a library to interface with <a href="https://gluster.readthedocs.org/en/latest/">Gluster</a></p>
+
+<p>Most of the commands below are wrappers around the CLI functionality.  However recently I have
+reverse engineered some of the Gluster RPC protocol so that calls can be made directly against
+the Gluster server.  This method of communication is much faster than shelling out.</p>
+
+<p>Scale testing with this library has been done to about 60 servers successfully.</p>
+
+<p>Please file any bugs found at: <a href="https://github.com/cholcombe973/Gluster">Gluster Repo</a>
+Pull requests are more than welcome!</p>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Brick.html'
+                               title='gluster::Brick'>Brick</a></td>
+                        <td class='docblock short'>
+                             <p>A Gluster Brick consists of a Peer and a path to the mount point</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Peer.html'
+                               title='gluster::Peer'>Peer</a></td>
+                        <td class='docblock short'>
+                             <p>A Gluster Peer.  A Peer is roughly equivalent to a server in Gluster.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Quota.html'
+                               title='gluster::Quota'>Quota</a></td>
+                        <td class='docblock short'>
+                             <p>A Quota can be used set limits on the pool usage.  All limits are set in bytes.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Volume.html'
+                               title='gluster::Volume'>Volume</a></td>
+                        <td class='docblock short'>
+                             <p>A volume is a logical collection of bricks. Most of the gluster management operations
+happen on the volume.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.GlusterError.html'
+                               title='gluster::GlusterError'>GlusterError</a></td>
+                        <td class='docblock short'>
+                             <p>Custom error handling for the library</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.State.html'
+                               title='gluster::State'>State</a></td>
+                        <td class='docblock short'>
+                             <p>A enum representing the possible States that a Peer can be in</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Transport.html'
+                               title='gluster::Transport'>Transport</a></td>
+                        <td class='docblock short'>
+                             <p>An enum to select the transport method Gluster should use for the Volume</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.VolumeTranslator.html'
+                               title='gluster::VolumeTranslator'>VolumeTranslator</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.VolumeType.html'
+                               title='gluster::VolumeType'>VolumeType</a></td>
+                        <td class='docblock short'>
+                             <p>These are all the different Volume types that are possible in Gluster
+Note: Tier is not represented here because I&#39;m waiting for it to become more stable
+For more information about these types see: <a href="https://gluster.readthedocs.org/en/latest/Administrator%20Guide/Setting%20Up%20Volumes/">Gluster Volume</a></p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.get_local_hostname.html'
+                               title='gluster::get_local_hostname'>get_local_hostname</a></td>
+                        <td class='docblock short'>
+                             <p>A function to get the information from /etc/hostname</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.get_local_ip.html'
+                               title='gluster::get_local_ip'>get_local_ip</a></td>
+                        <td class='docblock short'>
+                             <p>Returns the local IPv4Addr address associated with this server</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Returns a GlusterError representing any failure that may have happened while trying to
+query this information.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.get_peer.html'
+                               title='gluster::get_peer'>get_peer</a></td>
+                        <td class='docblock short'>
+                             <p>This will query the Gluster peer list and return a Peer struct for the peer</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Returns GlusterError if the peer could not be found</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.get_quota_usage.html'
+                               title='gluster::get_quota_usage'>get_quota_usage</a></td>
+                        <td class='docblock short'>
+                             <p>Returns a u64 representing the bytes used on the volume.
+Note: This uses my brand new RPC library.  Some bugs may exist so use caution.  This does not
+shell out and therefore should be significantly faster.  It also suffers far less hang conditions
+than the CLI version.</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the RPC fails</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.peer_list.html'
+                               title='gluster::peer_list'>peer_list</a></td>
+                        <td class='docblock short'>
+                             <p>Runs gluster pool list and returns a Vec<Peer> representing all the peers in the cluster
+This also returns information for the localhost as a Peer.  peer_status() does not</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Returns GlusterError if the command failed to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.peer_probe.html'
+                               title='gluster::peer_probe'>peer_probe</a></td>
+                        <td class='docblock short'>
+                             <p>Adds a new peer to the cluster by hostname or ip address</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Returns GlusterError if the command failed to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.peer_remove.html'
+                               title='gluster::peer_remove'>peer_remove</a></td>
+                        <td class='docblock short'>
+                             <p>Removes a peer from the cluster by hostname or ip address</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Returns GlusterError if the command failed to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.peer_status.html'
+                               title='gluster::peer_status'>peer_status</a></td>
+                        <td class='docblock short'>
+                             <p>Runs gluster peer status and returns a Vec<Peer> representing all the peers in the cluster</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Returns GlusterError if the command failed to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.quota_list.html'
+                               title='gluster::quota_list'>quota_list</a></td>
+                        <td class='docblock short'>
+                             <p>Return a list of quotas on the volume if any</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.resolve_to_ip.html'
+                               title='gluster::resolve_to_ip'>resolve_to_ip</a></td>
+                        <td class='docblock short'>
+                             <p>Resolves a &amp;str hostname into a ip address.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.translate_to_bytes.html'
+                               title='gluster::translate_to_bytes'>translate_to_bytes</a></td>
+                        <td class='docblock short'>
+                             <p>This is a helper function to convert values such as 1PB into a bytes</p>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>gluster</span>;
+<span class='kw'>let</span> <span class='ident'>bytes</span> <span class='op'>=</span> <span class='ident'>gluster</span>::<span class='ident'>translate_to_bytes</span>(<span class='string'>&quot;1GB&quot;</span>).<span class='ident'>unwrap</span>();
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>bytes</span>, <span class='number'>1073741824</span>);</pre>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_add_brick.html'
+                               title='gluster::volume_add_brick'>volume_add_brick</a></td>
+                        <td class='docblock short'>
+                             <p>This adds a new brick to the volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_add_quota.html'
+                               title='gluster::volume_add_quota'>volume_add_quota</a></td>
+                        <td class='docblock short'>
+                             <p>Adds a size quota to the volume and path.</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_create_distributed.html'
+                               title='gluster::volume_create_distributed'>volume_create_distributed</a></td>
+                        <td class='docblock short'>
+                             <p>This creates a new distributed volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_create_erasure.html'
+                               title='gluster::volume_create_erasure'>volume_create_erasure</a></td>
+                        <td class='docblock short'>
+                             <p>This creates a new erasure coded volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_create_replicated.html'
+                               title='gluster::volume_create_replicated'>volume_create_replicated</a></td>
+                        <td class='docblock short'>
+                             <p>This creates a new replicated volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_create_striped.html'
+                               title='gluster::volume_create_striped'>volume_create_striped</a></td>
+                        <td class='docblock short'>
+                             <p>This creates a new striped volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_create_striped_replicated.html'
+                               title='gluster::volume_create_striped_replicated'>volume_create_striped_replicated</a></td>
+                        <td class='docblock short'>
+                             <p>This creates a new striped and replicated volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_delete.html'
+                               title='gluster::volume_delete'>volume_delete</a></td>
+                        <td class='docblock short'>
+                             <p>This deletes a stopped volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_disable_quotas.html'
+                               title='gluster::volume_disable_quotas'>volume_disable_quotas</a></td>
+                        <td class='docblock short'>
+                             <p>Disable quotas on the volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_enable_quotas.html'
+                               title='gluster::volume_enable_quotas'>volume_enable_quotas</a></td>
+                        <td class='docblock short'>
+                             <p>Enable quotas on the volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_info.html'
+                               title='gluster::volume_info'>volume_info</a></td>
+                        <td class='docblock short'>
+                             <p>Returns a Volume with all available information on the volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command failed to run.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_list.html'
+                               title='gluster::volume_list'>volume_list</a></td>
+                        <td class='docblock short'>
+                             <p>Lists all available volume names.</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return None if the Volume list command failed or if volume could not be transformed
+into a String from utf8</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_rebalance.html'
+                               title='gluster::volume_rebalance'>volume_rebalance</a></td>
+                        <td class='docblock short'>
+                             <p>This function doesn&#39;t do anything yet.  It is a place holder because volume_rebalance
+is a long running command and I haven&#39;t decided how to poll for completion yet</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_remove_brick.html'
+                               title='gluster::volume_remove_brick'>volume_remove_brick</a></td>
+                        <td class='docblock short'>
+                             <p>This will remove a brick from the volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_start.html'
+                               title='gluster::volume_start'>volume_start</a></td>
+                        <td class='docblock short'>
+                             <p>Once a volume is created it needs to be started.  This starts the volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.volume_stop.html'
+                               title='gluster::volume_stop'>volume_stop</a></td>
+                        <td class='docblock short'>
+                             <p>This stops a running volume</p>
+
+<h1 id='failures' class='section-header'><a href='#failures'>Failures</a></h1>
+<p>Will return GlusterError if the command fails to run</p>
+
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "gluster";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>
