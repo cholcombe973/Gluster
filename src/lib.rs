@@ -341,6 +341,24 @@ impl VolumeType {
             _ => VolumeType::Replicate,
         }
     }
+
+    /// Returns a enum variant of the given String.
+    pub fn from_str(vol_type: &str) -> VolumeType {
+        match vol_type {
+            "Distribute" => VolumeType::Distribute,
+            "Stripe" => VolumeType::Stripe,
+            "Replicate" => VolumeType::Replicate,
+            "Striped-Replicate" => VolumeType::StripedAndReplicate,
+            "Disperse" => VolumeType::Disperse,
+            //VolumeType::Tier => "Tier".to_string(), //TODO: Waiting for this to become stable
+            "Distributed-Stripe" => VolumeType::DistributedAndStripe,
+            "Distributed-Replicate" => VolumeType::DistributedAndReplicate,
+            "Distributed-Striped-Replicate" => VolumeType::DistributedAndStripedAndReplicate,
+            "Distributed-Disperse" => VolumeType::DistributedAndDisperse,
+            _ => VolumeType::Replicate,
+        }
+    }
+
     /// Returns a String representation of the selected enum variant.
     pub fn to_string(self) -> String {
         match self {
