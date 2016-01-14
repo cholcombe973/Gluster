@@ -7,6 +7,7 @@
 //! Scale testing with this library has been done to about 60 servers successfully.
 //!
 //! Please file any bugs found at: [Gluster Repo](https://github.com/cholcombe973/Gluster)
+//! Pull requests are more than welcome!
 mod rpc;
 extern crate byteorder;
 extern crate regex;
@@ -79,7 +80,7 @@ mod tests {
 
 }
 
-// Custom error handling for the library
+/// Custom error handling for the library
 #[derive(Debug)]
 pub enum GlusterError {
     IoError(io::Error),
@@ -92,10 +93,12 @@ pub enum GlusterError {
 }
 
 impl GlusterError {
+    /// Create a new GlusterError with a String message
     fn new(err: String) -> GlusterError {
         GlusterError::IoError(io::Error::new(std::io::ErrorKind::Other, err))
     }
 
+    /// Convert a GlusterError into a String representation.
     pub fn to_string(&self) -> String {
         match *self {
             GlusterError::IoError(ref err) => err.description().to_string(),
@@ -227,6 +230,8 @@ impl State {
         }
     }
 }
+
+/// A Quota can be used set limits on the pool usage.  All limits are set in bytes.
 #[derive(Debug)]
 pub struct Quota {
     pub path: PathBuf,
@@ -234,6 +239,7 @@ pub struct Quota {
     pub used: u64,
 }
 
+/// A Gluster Peer.  A Peer is roughly equivalent to a server in Gluster.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Peer {
     /// The unique identifer of this peer
@@ -264,6 +270,7 @@ pub enum Transport {
 }
 
 impl Transport {
+    /// Create a new Transport from a str.
     fn new(name: &str) -> Transport {
         match name.trim().to_ascii_lowercase().as_ref() {
             "tcp" => Transport::Tcp,
@@ -374,6 +381,8 @@ impl VolumeType {
     }
 }
 
+/// A volume is a logical collection of bricks. Most of the gluster management operations
+/// happen on the volume.
 #[derive(Debug)]
 pub struct Volume {
     /// The name of the volume
