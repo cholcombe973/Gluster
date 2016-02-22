@@ -31,6 +31,7 @@ use std::io::prelude::*;
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::path::Path;
+use std::str::FromStr;
 use unix_socket::UnixStream;
 
 use rpc::Pack;
@@ -91,6 +92,8 @@ pub enum GlusterError{
     FromUtf8Error(std::string::FromUtf8Error),
     ParseError(uuid::ParseError),
     AddrParseError(String),
+    ParseIntError(std::num::ParseIntError),
+    ParseBoolErr(std::str::ParseBoolError),
     ByteOrder(byteorder::Error),
     RegexError(regex::Error),
     NoVolumesPresent,
@@ -110,6 +113,8 @@ impl GlusterError{
             //TODO fix this
             GlusterError::ParseError(_) => "Parse error".to_string(),
             GlusterError::AddrParseError(_) => "IP Address parsing error".to_string(),
+            GlusterError::ParseIntError(ref err) => err.description().to_string(),
+            GlusterError::ParseBoolErr(ref err) => err.description().to_string(),
             GlusterError::ByteOrder(ref err) => err.description().to_string(),
             GlusterError::RegexError(ref err) => err.description().to_string(),
             GlusterError::NoVolumesPresent => "No volumes present".to_string(),
@@ -138,6 +143,18 @@ impl From<uuid::ParseError> for GlusterError {
 impl From<std::net::AddrParseError> for GlusterError {
     fn from(_: std::net::AddrParseError) -> GlusterError {
         GlusterError::AddrParseError("IP Address parsing error".to_string())
+    }
+}
+
+impl From<std::num::ParseIntError> for GlusterError {
+    fn from(err: std::num::ParseIntError) -> GlusterError {
+        GlusterError::ParseIntError(err)
+    }
+}
+
+impl From<std::str::ParseBoolError> for GlusterError {
+    fn from(err: std::str::ParseBoolError) -> GlusterError {
+        GlusterError::ParseBoolErr(err)
     }
 }
 
@@ -170,6 +187,14 @@ impl fmt::Debug for Brick {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}:{:?}", self.peer.hostname, self.path.to_str())
     }
+}
+
+pub struct BrickStatus{
+    brick: Brick,
+    tcp_port: u16,
+    rdma_port: u16,
+    online: bool,
+    pid: u16,
 }
 
 /// A enum representing the possible States that a Peer can be in
@@ -990,16 +1015,7 @@ pub fn quota_list(volume: &str)->Option<Vec<Quota>>{
   There are 2 ways to get quota information
   1. List the quota's with the quota list command.  This command has been known in the past to hang
   in certain situations.
-  2. Go to the backend brick and getfattr -d -e hex -m . dir_name/ on the directory directly:
-    /mnt/x1# getfattr -d -e hex -m . quota/
-    # file: quota/
-    trusted.gfid=0xdb2443e4742e4aaf844eee40405ad7ae
-    trusted.glusterfs.dht=0x000000010000000000000000ffffffff
-    trusted.glusterfs.quota.00000000-0000-0000-0000-000000000001.contri=0x0000000000000000
-    trusted.glusterfs.quota.dirty=0x3000
-    trusted.glusterfs.quota.limit-set=0x0000000006400000ffffffffffffffff
-    trusted.glusterfs.quota.size=0x0000000000000000
-  TODO: link to the c xattr library #include <sys/xattr.h> and implement method 2
+  2. Issue an RPC directly to Gluster
 */
     let mut quota_list: Vec<Quota> = Vec::new();
     let mut args_list: Vec<String> = Vec::new();
@@ -1116,8 +1132,84 @@ pub fn volume_shrink_replicated(volume: &str,
     //ommit|force> - remove brick from volume <VOLNAME>
 }
 */
-fn ok_to_remove()->bool{
-    return true;
+fn parse_volume_status(output_str: String)->Result<Vec<BrickStatus>, GlusterError>{
+    /*
+        //Sample output
+        Status of volume: test
+        Gluster process                             TCP Port  RDMA Port  Online  Pid
+        ------------------------------------------------------------------------------
+        Brick 192.168.1.6:/mnt/brick2               49154     0          Y       14940
+        Brick 192.168.1.6:/mnt/brick3               49155     0          Y       14947
+     */
+     let mut bricks: Vec<BrickStatus> = Vec::new();
+     for line in output_str.lines(){
+         //Skip the header crap
+         if line.starts_with("Status"){
+             continue;
+         }
+         if line.starts_with("Gluster"){
+             continue;
+         }
+         if line.starts_with("-"){
+             continue;
+         }
+         let brick_regex = try!(Regex::new(r"Brick\s+(?P<hostname>[a-zA-Z0-9.])+:(?P<path>[/a-zA-z0-9])+\s+(?P<tcp>[0-9])+\s+(?P<rdma>[0-9])+\s+(?P<online>[Y,N])+\s+(?P<pid>[0-9])+"));
+         match brick_regex.captures(&line){
+             Some(result) => {
+                 let tcp_port = match result.name("tcp"){
+                     Some(port) => port,
+                     None => {
+                         return Err(GlusterError::new("Unable to find tcp port in gluster vol status output".to_string()));
+                     }
+                 };
+
+                 let peer = Peer{
+                     uuid: Uuid::new_v4(),
+                     hostname:result.name("hostname").unwrap().to_string(),
+                     status: State::Unknown,
+                 };
+
+                 let brick = Brick{
+                     peer: peer,
+                     path: PathBuf::from(result.name("path").unwrap()),
+                 };
+
+                 let status = BrickStatus{
+                     brick: brick,
+                     tcp_port: try!(u16::from_str(result.name("tcp").unwrap())),
+                     rdma_port: try!(u16::from_str(result.name("rdma").unwrap())),
+                     online: try!(bool::from_str(result.name("online").unwrap())),
+                     pid: try!(u16::from_str(result.name("pid").unwrap())),
+                 };
+                 bricks.push(status);
+             },
+             None=>{},
+         }
+     }
+     return Ok(bricks);
+
+}
+
+/// Based on the replicas or erasure bits that are still available in the volume this will return
+/// True or False as to whether you can remove a Brick. This should be called before volume_remove_brick()
+pub fn ok_to_remove(volume: &str, brick: &Brick)->Result<bool, GlusterError>{
+    //TODO: switch over to native RPC call to eliminate String regex parsing
+    let mut arg_list: Vec<String>  = Vec::new();
+    arg_list.push("vol".to_string());
+    arg_list.push("status".to_string());
+    arg_list.push(volume.to_string());
+
+    let output = run_command("gluster", &arg_list, true, false);
+    if !output.status.success(){
+        let stderr = try!(String::from_utf8(output.stderr));
+        return Err(GlusterError::new(stderr));
+    }
+
+    let output_str = try!(String::from_utf8(output.stdout));
+    let bricks = try!(parse_volume_status(output_str));
+    //The redudancy requirement is needed here.  The code needs to understand what volume type
+    //it's operating on.
+    return Ok(true);
 }
 
 /// This will remove a brick from the volume
@@ -1131,21 +1223,25 @@ pub fn volume_remove_brick(volume: &str,
         return Err(GlusterError::new("The brick list is empty. Not shrinking volume".to_string()));
     }
 
-    if ok_to_remove(){
-        let mut arg_list: Vec<String> = Vec::new();
-        arg_list.push("volume".to_string());
-        arg_list.push("remove-brick".to_string());
-        arg_list.push(volume.to_string());
+    for brick in bricks{
+        let ok = try!(ok_to_remove(&volume, &brick));
+        if ok{
+            let mut arg_list: Vec<String> = Vec::new();
+            arg_list.push("volume".to_string());
+            arg_list.push("remove-brick".to_string());
+            arg_list.push(volume.to_string());
 
-        if force{
-            arg_list.push("force".to_string());
+            if force{
+                arg_list.push("force".to_string());
+            }
+            arg_list.push("start".to_string());
+
+            let status = process_output(run_command("gluster", &arg_list, true, true));
+        }else{
+            return Err(GlusterError::new("Unable to remove brick due to redundancy failure".to_string()));
         }
-        arg_list.push("start".to_string());
-
-        return process_output(run_command("gluster", &arg_list, true, true));
-    }else{
-        return Err(GlusterError::new("Unable to remove brick due to redundancy failure".to_string()));
     }
+    return Ok(0);
 }
 
 //volume add-brick <VOLNAME> [<stripe|replica> <COUNT>]

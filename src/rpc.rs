@@ -293,7 +293,7 @@ pub trait Pack{
 
 /// This trait is for unpacking XDR encoded information
 pub trait UnPack{
-    fn unpack<T: Read>(&mut T) -> Result<Self, super::GlusterError>;
+    fn unpack<T: Read>(&mut T) -> Result<Self, super::GlusterError> where Self: Sized;
 }
 
 fn unpack_string<T: Read>(data: &mut T, size: u32)->Result<String,super::GlusterError>{
