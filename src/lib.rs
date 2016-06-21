@@ -1230,7 +1230,7 @@ fn parse_volume_status(output_str: String)->Result<Vec<BrickStatus>, GlusterErro
 
 }
 
-pub fn volume_status(volume: &str) -> Result<Vec<BrickStatus, GlusterError>>{
+pub fn volume_status(volume: &str) -> Result<Vec<BrickStatus>, GlusterError>{
     let mut arg_list: Vec<String>  = Vec::new();
     arg_list.push("vol".to_string());
     arg_list.push("status".to_string());
