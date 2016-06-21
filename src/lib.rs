@@ -1230,6 +1230,24 @@ fn parse_volume_status(output_str: String)->Result<Vec<BrickStatus>, GlusterErro
 
 }
 
+pub fn volume_status(volume: &str) -> Result<Vec<BrickStatus, GlusterError>>{
+    let mut arg_list: Vec<String>  = Vec::new();
+    arg_list.push("vol".to_string());
+    arg_list.push("status".to_string());
+    arg_list.push(volume.to_string());
+
+    let output = run_command("gluster", &arg_list, true, false);
+    if !output.status.success(){
+        let stderr = try!(String::from_utf8(output.stderr));
+        return Err(GlusterError::new(stderr));
+    }
+
+    let output_str = try!(String::from_utf8(output.stdout));
+    let bricks = try!(parse_volume_status(output_str));
+
+    Ok(bricks)
+}
+
 /// Based on the replicas or erasure bits that are still available in the volume this will return
 /// True or False as to whether you can remove a Brick. This should be called before volume_remove_brick()
 pub fn ok_to_remove(volume: &str, brick: &Brick)->Result<bool, GlusterError>{
