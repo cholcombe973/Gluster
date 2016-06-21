@@ -187,6 +187,7 @@ impl fmt::Debug for Brick {
     }
 }
 
+#[derive(Debug)]
 pub struct BrickStatus{
     brick: Brick,
     tcp_port: u16,
@@ -1214,11 +1215,17 @@ fn parse_volume_status(output_str: String)->Result<Vec<BrickStatus>, GlusterErro
                      path: PathBuf::from(result.name("path").unwrap()),
                  };
 
+                 let online = match result.name("online").unwrap(){
+                     "Y" => true,
+                     "N" => false,
+                     _ => false,
+                 };
+
                  let status = BrickStatus{
                      brick: brick,
                      tcp_port: try!(u16::from_str(result.name("tcp").unwrap())),
                      rdma_port: try!(u16::from_str(result.name("rdma").unwrap())),
-                     online: try!(bool::from_str(result.name("online").unwrap())),
+                     online: online,
                      pid: try!(u16::from_str(result.name("pid").unwrap())),
                  };
                  bricks.push(status);
