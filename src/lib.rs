@@ -1123,6 +1123,54 @@ pub fn quota_list(volume: &str) -> Option<Vec<Quota>> {
     return Some(quota_list);
 }
 
+/// Set or Unset a volume option.
+pub fn volume_set(volume: &str, key: &str, value: &str) -> Result<i32, GlusterError>{
+    let mut arg_list: Vec<String> = Vec::new();
+    arg_list.push("volume".to_string());
+    arg_list.push("set".to_string());
+    arg_list.push(volume.to_string());
+    arg_list.push(key.to_owned());
+    arg_list.push(value.to_owned());
+
+    return process_output(run_command("gluster", &arg_list, true, false));
+}
+
+fn generate_ssl_certificate(){
+    // Generate a new ssl certificate 
+    let arg_list = vec![
+        "req".to_string(),
+        "-newkey".to_string(),
+        "rsa:2048".to_string(),
+        "-nodes".to_string(),
+        "-keyout".to_string(),
+        "domain.key".to_string(),
+        "-out".to_string(),
+        "domain.csr".to_string(),
+        "-subj".to_string(),
+        "/C=US/ST=New York/L=Brooklyn/O=Gluster".to_string(),
+        "Cert/CN=gluster.com",
+    ];
+    return process_output(run_command("openssl", &arg_list, true, false));
+}
+
+fn generate_certificate_authority(){
+    let arg_list = vec![];
+
+    return process_output(run_command("openssl", &arg_list, true, false));
+}
+
+/// Enable TLS encryption for a volume, requires a list of
+/// servers and clients that are participating in the cluster
+pub fn enable_encryption(volume: &str, servers_and_clients: Vec<String>){
+
+}
+
+/// Disable TLS encryption for a volume, requires a list of
+/// servers and clients that are participating in the cluster
+pub fn disable_encryption(volume: &str, servers_and_clients: Vec<String>){
+
+}
+
 /// Enable quotas on the volume
 /// # Failures
 /// Will return GlusterError if the command fails to run
