@@ -12,4 +12,4 @@ byteorder = "0.4.2"
 log = "0.3.5"
 regex = "0.1.53"
 unix_socket = "0.5.0"
-uuid = "0.1.18"
+uuid = {version = "~0.3", features = ["v4"]}

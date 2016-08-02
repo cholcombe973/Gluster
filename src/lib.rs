@@ -281,7 +281,7 @@ impl fmt::Debug for Peer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
                "UUID: {} Hostname: {} Status: {}",
-               self.uuid.to_hyphenated_string(),
+               self.uuid.hyphenated().to_string(),
                self.hostname,
                self.status.to_string())
     }
