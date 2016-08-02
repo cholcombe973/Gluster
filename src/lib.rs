@@ -167,6 +167,7 @@ impl From<regex::Error> for GlusterError {
 }
 
 /// A Gluster Brick consists of a Peer and a path to the mount point
+#[derive(Clone, Eq, PartialEq)]
 pub struct Brick {
     pub peer: Peer,
     pub path: PathBuf,
