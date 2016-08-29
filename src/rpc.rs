@@ -1,8 +1,10 @@
 //! A module for communicating with Gluster over native RPC
 //!
 //! This contains a lot of helper functions to make communication less painful.
-//! This library should be considered experimental.  A lot of the RPC calls in Gluster are
-//! undocumented and this library is most likely missing information required for them to operate.
+//! This library should be considered experimental.  A lot of the RPC calls in
+//! Gluster are
+//! undocumented and this library is most likely missing information required
+//! for them to operate.
 extern crate byteorder;
 extern crate unix_socket;
 
@@ -12,11 +14,13 @@ use std::io::prelude::*;
 use std::collections::HashMap;
 use self::unix_socket::UnixStream;
 
-/// The magic number to use when communicating with Gluster and making CLI RPC requests
+/// The magic number to use when communicating with Gluster and making CLI RPC
+/// requests
 pub const GLUSTER_CLI_PROGRAM_NUMBER: i32 = 1238463;
 /// The magic number for Gluster's v2 credential flavor
 pub const GLUSTER_V2_CRED_FLAVOR: i32 = 390039;
-/// The magic number to use when communicating with Gluster and making Quota RPC requests
+/// The magic number to use when communicating with Gluster and making Quota
+/// RPC requests
 pub const GLUSTER_QUOTA_PROGRAM_NUMBER: i32 = 29852134;
 const RPC_VERSION: u32 = 2;
 const CALL: i32 = 0;
@@ -51,7 +55,8 @@ mod tests {
         // We're mocking the call and response
 
         // This is what the call bytes should look like after being packed
-        // XDR says every 4 bytes is a value so I've arranged this vertically to help visualize that.
+        // XDR says every 4 bytes is a value so I've arranged this vertically to help
+        // visualize that.
         let packed_call_result_bytes: Vec<u8> = vec![0x00,
                                                      0x00,
                                                      0x00,
@@ -237,26 +242,21 @@ mod tests {
     #[test]
     fn list_quota() {
 
-        let mut reply_bytes: Vec<u8> = vec![0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 117, 0, 0, 0,
-                                            0, 0, 0, 0, 228, 0, 0, 0, 6, 0, 0, 0, 4, 0, 0, 0, 2,
-                                            116, 121, 112, 101, 0, 53, 0, 0, 0, 0, 28, 0, 0, 0,
-                                            24, 116, 114, 117, 115, 116, 101, 100, 46, 103, 108,
-                                            117, 115, 116, 101, 114, 102, 115, 46, 113, 117, 111,
-                                            116, 97, 46, 115, 105, 122, 101, 0, 0, 0, 0, 1, 58, 0,
-                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4,
-                                            0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117, 115, 116, 101,
-                                            114, 102, 115, 46, 97, 110, 99, 101, 115, 116, 114,
-                                            121, 46, 112, 97, 116, 104, 0, 47, 0, 0, 0, 0, 21, 0,
-                                            0, 0, 16, 116, 114, 117, 115, 116, 101, 100, 46, 103,
-                                            108, 117, 115, 116, 101, 114, 102, 115, 46, 100, 104,
-                                            116, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255,
-                                            255, 255, 0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117, 115,
-                                            116, 101, 114, 102, 115, 46, 101, 110, 116, 114, 121,
-                                            108, 107, 45, 99, 111, 117, 110, 116, 0, 48, 0, 0, 0,
-                                            0, 23, 0, 0, 0, 2, 103, 108, 117, 115, 116, 101, 114,
-                                            102, 115, 46, 105, 110, 111, 100, 101, 108, 107, 45,
-                                            99, 111, 117, 110, 116, 0, 48, 0];
+        let mut reply_bytes: Vec<u8> =
+            vec![0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 117, 0, 0, 0, 0, 0, 0, 0, 228, 0, 0, 0, 6, 0, 0, 0, 4, 0, 0, 0, 2,
+                 116, 121, 112, 101, 0, 53, 0, 0, 0, 0, 28, 0, 0, 0, 24, 116, 114, 117, 115, 116,
+                 101, 100, 46, 103, 108, 117, 115, 116, 101, 114, 102, 115, 46, 113, 117, 111,
+                 116, 97, 46, 115, 105, 122, 101, 0, 0, 0, 0, 1, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117, 115, 116, 101,
+                 114, 102, 115, 46, 97, 110, 99, 101, 115, 116, 114, 121, 46, 112, 97, 116, 104,
+                 0, 47, 0, 0, 0, 0, 21, 0, 0, 0, 16, 116, 114, 117, 115, 116, 101, 100, 46, 103,
+                 108, 117, 115, 116, 101, 114, 102, 115, 46, 100, 104, 116, 0, 0, 0, 0, 1, 0, 0,
+                 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117,
+                 115, 116, 101, 114, 102, 115, 46, 101, 110, 116, 114, 121, 108, 107, 45, 99, 111,
+                 117, 110, 116, 0, 48, 0, 0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117, 115, 116, 101,
+                 114, 102, 115, 46, 105, 110, 111, 100, 101, 108, 107, 45, 99, 111, 117, 110, 116,
+                 0, 48, 0];
 
         let xid = 1;
         let prog = super::GLUSTER_QUOTA_PROGRAM_NUMBER;
@@ -278,10 +278,13 @@ mod tests {
         };
         let cred_bytes = creds.pack().unwrap();
 
-        let mut call_bytes = super::pack_quota_callheader(
-            xid, prog, vers,
-            super::GlusterAggregatorCommand::GlusterAggregatorGetlimit,
-            cred_bytes, verf_bytes).unwrap();
+        let mut call_bytes = super::pack_quota_callheader(xid,
+                                                          prog,
+                                                          vers,
+                                                          super::GlusterAggregatorCommand::GlusterAggregatorGetlimit,
+                                                          cred_bytes,
+                                                          verf_bytes)
+            .unwrap();
 
         let mut dict: HashMap<String, Vec<u8>> = HashMap::new();
 
@@ -322,8 +325,8 @@ mod tests {
         println!("Quota reply: {:?}", &cli_response);
         // The raw bytes
         let mut quota_size_bytes = cli_response.dict
-                                               .get_mut("trusted.glusterfs.quota.size")
-                                               .unwrap();
+            .get_mut("trusted.glusterfs.quota.size")
+            .unwrap();
 
         let mut size_cursor = Cursor::new(&mut quota_size_bytes[..]);
         // Read u64 off the byte vector and get the decoded value
@@ -354,12 +357,12 @@ mod tests {
 }
 
 /// This trait is for packing XDR information
-pub trait Pack{
+pub trait Pack {
     fn pack(&self) -> Result<Vec<u8>, super::GlusterError>;
 }
 
 /// This trait is for unpacking XDR encoded information
-pub trait UnPack{
+pub trait UnPack {
     fn unpack<T: Read>(&mut T) -> Result<Self, super::GlusterError> where Self: Sized;
 }
 
@@ -422,9 +425,12 @@ impl AuthFlavor {
     }
 }
 
-/// Gluster CLI RPC requests contain an HashMap of parameters that differ for every translator
-/// being called.  Unfortunately they are not documented and I have not been able to decode many
-/// of them yet.  HashMap<String,Vec<u8>> was chosen because Gluster's dict values can be
+/// Gluster CLI RPC requests contain an HashMap of parameters that differ for
+/// every translator
+/// being called.  Unfortunately they are not documented and I have not been
+/// able to decode many
+/// of them yet.  HashMap<String,Vec<u8>> was chosen because Gluster's dict
+/// values can be
 /// any number of variants such as an integer, string, etc.
 #[derive(Debug)]
 pub struct GlusterCliRequest {
@@ -1109,7 +1115,8 @@ pub fn sendrecord(sock: &mut UnixStream, record: &Vec<u8>) -> Result<usize, supe
     return Ok(send_size);
 }
 
-/// Prints a hex encoded representation of the fragment. Very useful for debugging!
+/// Prints a hex encoded representation of the fragment. Very useful for
+/// debugging!
 pub fn print_fragment(frag: &Vec<u8>) {
     for chunk in frag.chunks(4) {
         for c in chunk {
@@ -1153,8 +1160,10 @@ pub fn recv_fragment<T: Read>(socket: &mut T) -> Result<(bool, Vec<u8>), super::
     return Ok((last, fragment));
 }
 
-/// This reads a record from a UnixStream.  It is meant to be used to interface with Gluster over
-/// a unix socket.  Future upgrades to this function will make it more generic so that
+/// This reads a record from a UnixStream.  It is meant to be used to interface
+/// with Gluster over
+/// a unix socket.  Future upgrades to this function will make it more generic
+/// so that
 /// tcp and unix sockets or replayed data can be used.
 /// # Failures
 /// Returns GlusterError if any failures occur
@@ -1180,7 +1189,8 @@ pub enum GlusterAggregatorCommand {
     GlusterAggregatorMaxvalue = 3,
 }
 
-/// All the possible CLI RPC calls that are available.  So far I have only tested GlusterCliListFriends
+/// All the possible CLI RPC calls that are available.  So far I have only
+/// tested GlusterCliListFriends
 #[derive(Debug)]
 pub enum GlusterCliCommand {
     GlusterCliNull = 0,
@@ -1263,8 +1273,10 @@ fn unpack_value<T: Read>(data: &mut T,
 ///
 /// NOTE keys are NULL terminated but not value's
 pub fn serialize_dict(dict: &HashMap<String, Vec<u8>>) -> Result<String, super::GlusterError> {
-    // Maybe the problem is that this whole thing is supposed to be packed into a string
-    // yeah... that could be it.  I'm writing the raw shit to the wire when I should be
+    // Maybe the problem is that this whole thing is supposed to be packed into a
+    // string
+    // yeah... that could be it.  I'm writing the raw shit to the wire when I
+    // should be
     // returning a string which is then pack_opaque
     let mut buffer: Vec<u8> = Vec::new();
 
