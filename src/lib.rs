@@ -85,6 +85,308 @@ Uuid: 5f45e89a-23c1-41dd-b0cd-fd9cf37f1520 State: Peer in Cluster (Connected)"#
 
 }
 
+pub enum SelfHealAlgorithm {
+    Full,
+    Diff,
+    Reset,
+}
+
+impl SelfHealAlgorithm{
+    fn to_string(&self) -> String{
+        match self{
+            &SelfHealAlgorithm::Full => "full".to_string(),
+            &SelfHealAlgorithm::Diff => "diff".to_string(),
+            &SelfHealAlgorithm::Reset => "reset".to_string(),
+        }
+    }
+}
+
+pub enum AccessMode {
+    ReadOnly,
+    ReadWrite,
+}
+
+impl AccessMode {
+    fn to_string(&self) -> String{
+        match self{
+            &AccessMode::ReadOnly => "read-only".to_string(),
+            &AccessMode::ReadWrite => "read-write".to_string(),
+        }
+    }
+}
+
+impl<'a> Into<&'a str> for AccessMode {
+    fn into(self) -> &'a str {
+        match self {
+            AccessMode::ReadOnly => "read-only",
+            AccessMode::ReadWrite => "read-write",
+        }
+    }
+}
+
+pub enum Toggle {
+    On,
+    Off,
+}
+
+impl Into<bool> for Toggle {
+    fn into(self) -> bool {
+        match self {
+            Toggle::On => true,
+            Toggle::Off => false,
+        }
+    }
+}
+
+impl Toggle {
+    fn to_string(&self) -> String{
+        match self {
+            &Toggle::On => "On".to_string(),
+            &Toggle::Off => "Off".to_string(),
+        }
+    }
+}
+
+pub enum GlusterOption<'a> {
+    /// Valid IP address which includes wild card patterns including *, such as 192.168.1.*
+    AuthAllow(&'a str),
+    /// Valid IP address which includes wild card patterns including *, such as 192.168.2.*
+    AuthReject(&'a str),
+    /// Specifies the duration for the lock state to be maintained on the client after a
+    /// network disconnection in seconds
+    /// Range: 10-1800
+    ClientGraceTimeout(i64),
+    /// Specifies the maximum number of blocks per file on which self-heal would happen
+    /// simultaneously.
+    /// Range: 0-1025
+    ClusterSelfHealWindowSize(u16),
+    /// Specifies the type of self-heal. If you set the option as "full", the entire file is
+    /// copied from source to destinations. If the option is set to "diff" the file blocks
+    /// that are not in sync are copied to destinations.
+    ClusterDataSelfHealAlgorithm(SelfHealAlgorithm),
+    /// Percentage of required minimum free disk space
+    ClusterMinFreeDisk(u8),
+    /// Specifies the size of the stripe unit that will be read from or written to in bytes
+    ClusterStripeBlockSize(u64),
+    /// Allows you to turn-off proactive self-heal on replicated
+    ClusterSelfHealDaemon(Toggle),
+    /// This option makes sure the data/metadata is durable across abrupt shutdown of the brick.
+    ClusterEnsureDurability(Toggle),
+    /// The log-level of the bricks.
+    DiagnosticsBrickLogLevel(log::LogLevel),
+    /// The log-level of the clients.
+    DiagnosticsClientLogLevel(log::LogLevel),
+    /// Statistics related to the latency of each operation would be tracked.
+    DiagnosticsLatencyMeasurement(Toggle),
+    /// Statistics related to file-operations would be tracked.
+    DiagnosticsDumpFdStats(Toggle),
+    /// Enables you to mount the entire volume as read-only for all the clients
+    /// (including NFS clients) accessing it.
+    FeaturesReadOnly(Toggle),
+    /// Enables self-healing of locks when the network disconnects.
+    FeaturesLockHeal(Toggle),
+    /// For performance reasons, quota caches the directory sizes on client. You can set timeout
+    /// indicating the maximum duration of directory sizes in cache, from the time they are
+    /// populated, during which they are considered valid
+    FeaturesQuotaTimeout(u16),
+    /// Automatically sync the changes in the filesystem from Master to Slave.
+    GeoReplicationIndexing(Toggle),
+    /// The time frame after which the operation has to be declared as dead, if the server does
+    /// not respond for a particular operation.
+    NetworkFrameTimeout(u16),
+    /// For 32-bit nfs clients or applications that do not support 64-bit inode numbers or large
+    /// files, use this option from the CLI to make Gluster NFS return 32-bit inode numbers
+    /// instead of 64-bit inode numbers.
+    NfsEnableIno32(Toggle),
+    /// Set the access type for the specified sub-volume.
+    NfsVolumeAccess(AccessMode),
+    /// If there is an UNSTABLE write from the client, STABLE flag will be returned to force the
+    /// client to not send a COMMIT request. In some environments, combined with a replicated
+    /// GlusterFS setup, this option can improve write performance. This flag allows users to
+    /// trust Gluster replication logic to sync data to the disks and recover when required.
+    /// COMMIT requests if received will be handled in a default manner by fsyncing. STABLE writes
+    /// are still handled in a sync manner.
+    NfsTrustedWrite(Toggle),
+    /// All writes and COMMIT requests are treated as async. This implies that no write requests
+    /// are guaranteed to be on server disks when the write reply is received at the NFS client.
+    /// Trusted sync includes trusted-write behavior.
+    NfsTrustedSync(Toggle),
+    /// This option can be used to export specified comma separated subdirectories in the volume.
+    /// The path must be an absolute path. Along with path allowed list of IPs/hostname can be
+    /// associated with each subdirectory. If provided connection will allowed only from these IPs.
+    /// Format: \<dir>[(hostspec[hostspec...])][,...]. Where hostspec can be an IP address,
+    /// hostname or an IP range in CIDR notation. Note: Care must be taken while configuring
+    /// this option as invalid entries and/or unreachable DNS servers can introduce unwanted
+    /// delay in all the mount calls.
+    NfsExportDir(&'a str),
+    /// Enable/Disable exporting entire volumes, instead if used in conjunction with
+    /// nfs3.export-dir, can allow setting up only subdirectories as exports.
+    NfsExportVolumes(Toggle),
+    /// Enable/Disable the AUTH_UNIX authentication type. This option is enabled by default for
+    /// better interoperability. However, you can disable it if required.
+    NfsRpcAuthUnix(Toggle),
+    /// Enable/Disable the AUTH_NULL authentication type. It is not recommended to change
+    /// the default value for this option.
+    NfsRpcAuthNull(Toggle),
+    /// Allow client connections from unprivileged ports. By default only privileged ports are
+    // allowed. This is a global setting in case insecure ports are to be enabled for all
+    /// exports using a single option.
+    NfsPortsInsecure(Toggle),
+    /// Turn-off name lookup for incoming client connections using this option. In some setups,
+    /// the name server can take too long to reply to DNS queries resulting in timeouts of mount
+    /// requests. Use this option to turn off name lookups during address authentication. Note,
+    NfsAddrNamelookup(Toggle),
+    /// For systems that need to run multiple NFS servers, you need to prevent more than one from
+    /// registering with portmap service. Use this option to turn off portmap registration for
+    /// Gluster NFS.
+    NfsRegisterWithPortmap(Toggle),
+    /// Turn-off volume being exported by NFS
+    NfsDisable(Toggle),
+    /// Size of the per-file write-behind buffer.Size of the per-file write-behind buffer.
+    PerformanceWriteBehindWindowSize(u64),
+    /// The number of threads in IO threads translator.
+    PerformanceIoThreadCount(u8),
+    /// If this option is set ON, instructs write-behind translator to perform flush in
+    /// background, by returning success (or any errors, if any of previous writes were failed)
+    /// to application even before flush is sent to backend filesystem.
+    PerformanceFlushBehind(Toggle),
+    /// Sets the maximum file size cached by the io-cache translator. Can use the normal size
+    /// descriptors of KB, MB, GB,TB or PB (for example, 6GB). Maximum size u64.
+    PerformanceCacheMaxFileSize(u64),
+    /// Sets the minimum file size cached by the io-cache translator. Values same as "max" above
+    PerformanceCacheMinFileSize(u64),
+    /// The cached data for a file will be retained till 'cache-refresh-timeout' seconds,
+    /// after which data re-validation is performed.
+    PerformanceCacheRefreshTimeout(u8),
+    /// Size of the read cache in bytes
+    PerformanceCacheSize(u64),
+    /// Allow client connections from unprivileged ports. By default only privileged ports are
+    /// allowed. This is a global setting in case insecure ports are to be enabled for all
+    /// exports using a single option.
+    ServerAllowInsecure(Toggle),
+    /// Specifies the duration for the lock state to be maintained on the server after a
+    /// network disconnection.
+    ServerGraceTimeout(u16),
+    /// Location of the state dump file.
+    ServerStatedumpPath(PathBuf),
+    /// Number of seconds between health-checks done on the filesystem that is used for the
+    /// brick(s). Defaults to 30 seconds, set to 0 to disable.
+    StorageHealthCheckInterval(u16),
+}
+
+impl<'a> GlusterOption<'a> {
+    fn to_string(&self) -> String {
+        match self {
+            &GlusterOption::AuthAllow(_) => "auth.allow".to_string(),
+            &GlusterOption::AuthReject(_) => "auth.reject".to_string(),
+            &GlusterOption::ClientGraceTimeout(_) => "client.grace-timeout".to_string(),
+            &GlusterOption::ClusterSelfHealWindowSize(_) => {
+                "cluster.self-heal-window-size".to_string()
+            }
+            &GlusterOption::ClusterDataSelfHealAlgorithm(_) => {
+                "cluster.data-self-heal-algorithm".to_string()
+            }
+            &GlusterOption::ClusterMinFreeDisk(_) => "cluster.min-free-disk".to_string(),
+            &GlusterOption::ClusterStripeBlockSize(_) => "cluster.stripe-block-size".to_string(),
+            &GlusterOption::ClusterSelfHealDaemon(_) => "cluster.self-heal-daemon".to_string(),
+            &GlusterOption::ClusterEnsureDurability(_) => "cluster.self-heal-daemon".to_string(),
+            &GlusterOption::DiagnosticsBrickLogLevel(_) => "cluster.self-heal-daemon".to_string(),
+            &GlusterOption::DiagnosticsClientLogLevel(_) => "cluster.self-heal-daemon".to_string(),
+            &GlusterOption::DiagnosticsLatencyMeasurement(_) => {
+                "diagnostics.latency-measurement".to_string()
+            }
+            &GlusterOption::DiagnosticsDumpFdStats(_) => {
+                "diagnostics.latency-measurement".to_string()
+            }
+            &GlusterOption::FeaturesReadOnly(_) => "features.read-only".to_string(),
+            &GlusterOption::FeaturesLockHeal(_) => "features.lock-heal".to_string(),
+            &GlusterOption::FeaturesQuotaTimeout(_) => "features.quota-timeout".to_string(),
+            &GlusterOption::GeoReplicationIndexing(_) => "geo-replication.indexing".to_string(),
+            &GlusterOption::NetworkFrameTimeout(_) => "network.frame-timeout".to_string(),
+            &GlusterOption::NfsEnableIno32(_) => "nfs.enable-ino32".to_string(),
+            &GlusterOption::NfsVolumeAccess(_) => "nfs.volume-access".to_string(),
+            &GlusterOption::NfsTrustedWrite(_) => "nfs.trusted-write".to_string(),
+            &GlusterOption::NfsTrustedSync(_) => "nfs.trusted-sync".to_string(),
+            &GlusterOption::NfsExportDir(_) => "nfs.export-dir".to_string(),
+            &GlusterOption::NfsExportVolumes(_) => "nfs.export-volumes".to_string(),
+            &GlusterOption::NfsRpcAuthUnix(_) => "nfs.rpc-auth-unix".to_string(),
+            &GlusterOption::NfsRpcAuthNull(_) => "nfs.rpc-auth-null".to_string(),
+            &GlusterOption::NfsPortsInsecure(_) => "nfs.ports-insecure".to_string(),
+            &GlusterOption::NfsAddrNamelookup(_) => "nfs.addr-namelookup".to_string(),
+            &GlusterOption::NfsRegisterWithPortmap(_) => "nfs.register-with-portmap".to_string(),
+            &GlusterOption::NfsDisable(_) => "nfs.disable".to_string(),
+            &GlusterOption::PerformanceWriteBehindWindowSize(_) => {
+                "performance.write-behind-window-size".to_string()
+            }
+            &GlusterOption::PerformanceIoThreadCount(_) => {
+                "performance.io-thread-count".to_string()
+            }
+            &GlusterOption::PerformanceFlushBehind(_) => "performance.flush-behind".to_string(),
+            &GlusterOption::PerformanceCacheMaxFileSize(_) => {
+                "performance.cache-max-file-size".to_string()
+            }
+            &GlusterOption::PerformanceCacheMinFileSize(_) => {
+                "performance.cache-min-file-size".to_string()
+            }
+            &GlusterOption::PerformanceCacheRefreshTimeout(_) => {
+                "performance.cache-refresh-timeout".to_string()
+            }
+            &GlusterOption::PerformanceCacheSize(_) => "performance.cache-size".to_string(),
+            &GlusterOption::ServerAllowInsecure(_) => "server.allow-insecure".to_string(),
+            &GlusterOption::ServerGraceTimeout(_) => "server.grace-timeout".to_string(),
+            &GlusterOption::ServerStatedumpPath(_) => "server.statedump-path".to_string(),
+            &GlusterOption::StorageHealthCheckInterval(_) => {
+                "storage.health-check-interval".to_string()
+            }
+        }
+    }
+    fn value(&self) -> String {
+        match self {
+            &GlusterOption::AuthAllow(val) => val.to_string(),
+            &GlusterOption::AuthReject(val) => val.to_string(),
+            &GlusterOption::ClientGraceTimeout(val) => val.to_string(),
+            &GlusterOption::ClusterSelfHealWindowSize(val) => val.to_string(),
+            &GlusterOption::ClusterDataSelfHealAlgorithm(ref val) => val.to_string(),
+            &GlusterOption::ClusterMinFreeDisk(val) => val.to_string(),
+            &GlusterOption::ClusterStripeBlockSize(val) => val.to_string(),
+            &GlusterOption::ClusterSelfHealDaemon(ref val) => val.to_string(),
+            &GlusterOption::ClusterEnsureDurability(ref val) => val.to_string(),
+            &GlusterOption::DiagnosticsBrickLogLevel(val) => val.to_string(),
+            &GlusterOption::DiagnosticsClientLogLevel(val) => val.to_string(),
+            &GlusterOption::DiagnosticsLatencyMeasurement(ref val) => val.to_string(),
+            &GlusterOption::DiagnosticsDumpFdStats(ref val) => val.to_string(),
+            &GlusterOption::FeaturesReadOnly(ref val) => val.to_string(),
+            &GlusterOption::FeaturesLockHeal(ref val) => val.to_string(),
+            &GlusterOption::FeaturesQuotaTimeout(val) => val.to_string(),
+            &GlusterOption::GeoReplicationIndexing(ref val) => val.to_string(),
+            &GlusterOption::NetworkFrameTimeout(val) => val.to_string(),
+            &GlusterOption::NfsEnableIno32(ref val) => val.to_string(),
+            &GlusterOption::NfsVolumeAccess(ref val) => val.to_string(),
+            &GlusterOption::NfsTrustedWrite(ref val) => val.to_string(),
+            &GlusterOption::NfsTrustedSync(ref val) => val.to_string(),
+            &GlusterOption::NfsExportDir(val) => val.to_string(),
+            &GlusterOption::NfsExportVolumes(ref val) => val.to_string(),
+            &GlusterOption::NfsRpcAuthUnix(ref val) => val.to_string(),
+            &GlusterOption::NfsRpcAuthNull(ref val) => val.to_string(),
+            &GlusterOption::NfsPortsInsecure(ref val) => val.to_string(),
+            &GlusterOption::NfsAddrNamelookup(ref val) => val.to_string(),
+            &GlusterOption::NfsRegisterWithPortmap(ref val) => val.to_string(),
+            &GlusterOption::NfsDisable(ref val) => val.to_string(),
+            &GlusterOption::PerformanceWriteBehindWindowSize(val) => val.to_string(),
+            &GlusterOption::PerformanceIoThreadCount(val) => val.to_string(),
+            &GlusterOption::PerformanceFlushBehind(ref val) => val.to_string(),
+            &GlusterOption::PerformanceCacheMaxFileSize(val) => val.to_string(),
+            &GlusterOption::PerformanceCacheMinFileSize(val) => val.to_string(),
+            &GlusterOption::PerformanceCacheRefreshTimeout(val) => val.to_string(),
+            &GlusterOption::PerformanceCacheSize(val) => val.to_string(),
+            &GlusterOption::ServerAllowInsecure(ref val) => val.to_string(),
+            &GlusterOption::ServerGraceTimeout(val) => val.to_string(),
+            &GlusterOption::ServerStatedumpPath(ref val) => val.to_string_lossy().into_owned(),
+            &GlusterOption::StorageHealthCheckInterval(val) => val.to_string(),
+        }
+    }
+}
+
 /// Custom error handling for the library
 #[derive(Debug)]
 pub enum GlusterError {
@@ -761,16 +1063,6 @@ pub fn peer_remove(hostname: &String, force: bool) -> Result<i32, GlusterError> 
     return process_output(run_command("gluster", &arg_list, true, false));
 }
 
-fn split_and_return_field(field_number: usize, string: String) -> String {
-    let x: Vec<&str> = string.split(" ").collect();
-    if x.len() == (field_number + 1) {
-        return x[field_number].to_string();
-    } else {
-        // Failed
-        return "".to_string();
-    }
-}
-
 // Note this will panic on failure to parse u64
 /// This is a helper function to convert values such as 1PB into a bytes
 /// # Examples
@@ -1204,13 +1496,11 @@ fn test_quota_list() {
 /                                          1.0KB     80%(819Bytes)   0Bytes   1.0KB              No                   No
 "#;
     let result = parse_quota_list("test", test_data.to_string());
-    let quotas = vec![
-        Quota{
-            path: PathBuf::from("/"),
-            limit: 0,
-            used: 0,
-        }
-    ];
+    let quotas = vec![Quota {
+                          path: PathBuf::from("/"),
+                          limit: 0,
+                          used: 0,
+                      }];
     println!("quota_list: {:?}", result);
     assert_eq!(quotas, result);
 }
@@ -1660,6 +1950,39 @@ fn volume_create<T: ToString>(volume: &str,
         arg_list.push("force".to_string());
     }
     return process_output(run_command("gluster", &arg_list, true, true));
+}
+
+fn vol_set(volume: &str, option: &GlusterOption) -> Result<i32, GlusterError> {
+    let mut arg_list: Vec<String> = Vec::new();
+    arg_list.push("volume".to_string());
+    arg_list.push("set".to_string());
+    arg_list.push(volume.to_string());
+
+    arg_list.push(option.to_string());
+    arg_list.push(option.value());
+
+    return process_output(run_command("gluster", &arg_list, true, true));
+}
+
+/// Set an option on the volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
+pub fn volume_set_options(volume: &str, settings: Vec<GlusterOption>) -> Result<i32, GlusterError> {
+    let results: Vec<Result<i32, GlusterError>> =
+        settings.iter().map(|gluster_opt| vol_set(volume, gluster_opt)).collect();
+
+    let mut error_list: Vec<String> = Vec::new();
+    for result in results{
+        match result{
+            Ok(_) => {},
+            Err(e) => {error_list.push(e.to_string())},
+        }
+    }
+    if error_list.len() > 0{
+        return Err(GlusterError::new(error_list.join("\n")));
+    }
+
+    return Ok(0);
 }
 
 

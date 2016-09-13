@@ -1000,7 +1000,8 @@ fn htonl(num: u32) -> u32 {
 
 // Takes a generic which will most likely be a Cursor
 // That way the next call can also use the last cursor position
-pub fn unpack_replyheader<T: Read>(data: &mut T) -> Result<(u32, GlusterAuth), super::GlusterError> {
+pub fn unpack_replyheader<T: Read>(data: &mut T)
+                                   -> Result<(u32, GlusterAuth), super::GlusterError> {
     let xid = try!(data.read_u32::<BigEndian>());
     println!("reply xid {}", xid);
     let msg_type = try!(data.read_i32::<BigEndian>());
