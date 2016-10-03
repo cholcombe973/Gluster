@@ -91,12 +91,20 @@ pub enum SelfHealAlgorithm {
     Reset,
 }
 
-impl SelfHealAlgorithm{
-    fn to_string(&self) -> String{
-        match self{
+impl SelfHealAlgorithm {
+    fn to_string(&self) -> String {
+        match self {
             &SelfHealAlgorithm::Full => "full".to_string(),
             &SelfHealAlgorithm::Diff => "diff".to_string(),
             &SelfHealAlgorithm::Reset => "reset".to_string(),
+        }
+    }
+    fn from_str(s: &str) -> SelfHealAlgorithm {
+        match s {
+            "full" => SelfHealAlgorithm::Full,
+            "diff" => SelfHealAlgorithm::Diff,
+            "reset" => SelfHealAlgorithm::Reset,
+            _ => SelfHealAlgorithm::Full,
         }
     }
 }
@@ -107,10 +115,17 @@ pub enum AccessMode {
 }
 
 impl AccessMode {
-    fn to_string(&self) -> String{
-        match self{
+    fn to_string(&self) -> String {
+        match self {
             &AccessMode::ReadOnly => "read-only".to_string(),
             &AccessMode::ReadWrite => "read-write".to_string(),
+        }
+    }
+    fn from_str(s: &str) -> AccessMode {
+        match s {
+            "read-only" => AccessMode::ReadOnly,
+            "read-write" => AccessMode::ReadWrite,
+            _ => AccessMode::ReadWrite,
         }
     }
 }
@@ -139,19 +154,28 @@ impl Into<bool> for Toggle {
 }
 
 impl Toggle {
-    fn to_string(&self) -> String{
+    fn to_string(&self) -> String {
         match self {
             &Toggle::On => "On".to_string(),
             &Toggle::Off => "Off".to_string(),
         }
     }
+    fn from_str(s: &str) -> Toggle {
+        match s {
+            "on" => Toggle::On,
+            "off" => Toggle::Off,
+            "true" => Toggle::On,
+            "false" => Toggle::Off,
+            _ => Toggle::Off,
+        }
+    }
 }
 
-pub enum GlusterOption<'a> {
+pub enum GlusterOption {
     /// Valid IP address which includes wild card patterns including *, such as 192.168.1.*
-    AuthAllow(&'a str),
+    AuthAllow(String),
     /// Valid IP address which includes wild card patterns including *, such as 192.168.2.*
-    AuthReject(&'a str),
+    AuthReject(String),
     /// Specifies the duration for the lock state to be maintained on the client after a
     /// network disconnection in seconds
     /// Range: 10-1800
@@ -218,7 +242,7 @@ pub enum GlusterOption<'a> {
     /// hostname or an IP range in CIDR notation. Note: Care must be taken while configuring
     /// this option as invalid entries and/or unreachable DNS servers can introduce unwanted
     /// delay in all the mount calls.
-    NfsExportDir(&'a str),
+    NfsExportDir(String),
     /// Enable/Disable exporting entire volumes, instead if used in conjunction with
     /// nfs3.export-dir, can allow setting up only subdirectories as exports.
     NfsExportVolumes(Toggle),
@@ -274,7 +298,7 @@ pub enum GlusterOption<'a> {
     StorageHealthCheckInterval(u16),
 }
 
-impl<'a> GlusterOption<'a> {
+impl GlusterOption {
     fn to_string(&self) -> String {
         match self {
             &GlusterOption::AuthAllow(_) => "auth.allow".to_string(),
@@ -342,8 +366,8 @@ impl<'a> GlusterOption<'a> {
     }
     fn value(&self) -> String {
         match self {
-            &GlusterOption::AuthAllow(val) => val.to_string(),
-            &GlusterOption::AuthReject(val) => val.to_string(),
+            &GlusterOption::AuthAllow(ref val) => val.to_string(),
+            &GlusterOption::AuthReject(ref val) => val.to_string(),
             &GlusterOption::ClientGraceTimeout(val) => val.to_string(),
             &GlusterOption::ClusterSelfHealWindowSize(val) => val.to_string(),
             &GlusterOption::ClusterDataSelfHealAlgorithm(ref val) => val.to_string(),
@@ -364,7 +388,7 @@ impl<'a> GlusterOption<'a> {
             &GlusterOption::NfsVolumeAccess(ref val) => val.to_string(),
             &GlusterOption::NfsTrustedWrite(ref val) => val.to_string(),
             &GlusterOption::NfsTrustedSync(ref val) => val.to_string(),
-            &GlusterOption::NfsExportDir(val) => val.to_string(),
+            &GlusterOption::NfsExportDir(ref val) => val.to_string(),
             &GlusterOption::NfsExportVolumes(ref val) => val.to_string(),
             &GlusterOption::NfsRpcAuthUnix(ref val) => val.to_string(),
             &GlusterOption::NfsRpcAuthNull(ref val) => val.to_string(),
@@ -383,6 +407,174 @@ impl<'a> GlusterOption<'a> {
             &GlusterOption::ServerGraceTimeout(val) => val.to_string(),
             &GlusterOption::ServerStatedumpPath(ref val) => val.to_string_lossy().into_owned(),
             &GlusterOption::StorageHealthCheckInterval(val) => val.to_string(),
+        }
+    }
+    pub fn from_str(s: &str, value: String) -> Result<GlusterOption, GlusterError> {
+        match s {
+            "AuthAllow" => {
+                return Ok(GlusterOption::AuthAllow(value));
+            }
+            "AuthReject" => {
+                return Ok(GlusterOption::AuthReject(value));
+            }
+            "ClientGraceTimeout" => {
+                let i = try!(i64::from_str(&value));
+                return Ok(GlusterOption::ClientGraceTimeout(i));
+            }
+            "ClusterSelfHealWindowSize" => {
+                let i = try!(u16::from_str(&value));
+                return Ok(GlusterOption::ClusterSelfHealWindowSize(i));
+            }
+            "ClusterDataSelfHealAlgorithm" => {
+                let s = SelfHealAlgorithm::from_str(&value);
+                return Ok(GlusterOption::ClusterDataSelfHealAlgorithm(s));
+            }
+            "ClusterMinFreeDisk" => {
+                let i = try!(u8::from_str(&value));
+                return Ok(GlusterOption::ClusterMinFreeDisk(i));
+            }
+            "ClusterStripeBlockSize" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::ClusterStripeBlockSize(i));
+            }
+            "ClusterSelfHealDaemon" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::ClusterSelfHealDaemon(t));
+            }
+            "ClusterEnsureDurability" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::ClusterEnsureDurability(t));
+            }
+            "DiagnosticsBrickLogLevel" => {
+                let l = log::LogLevel::from_str(&value).unwrap_or(log::LogLevel::Debug);
+                return Ok(GlusterOption::DiagnosticsBrickLogLevel(l));
+            }
+            "DiagnosticsClientLogLevel" => {
+                let l = log::LogLevel::from_str(&value).unwrap_or(log::LogLevel::Debug);
+                return Ok(GlusterOption::DiagnosticsClientLogLevel(l));
+            }
+            "DiagnosticsLatencyMeasurement" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::DiagnosticsLatencyMeasurement(t));
+            }
+            "DiagnosticsDumpFdStats" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::DiagnosticsDumpFdStats(t));
+            }
+            "FeaturesReadOnly" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::FeaturesReadOnly(t));
+            }
+            "FeaturesLockHeal" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::FeaturesLockHeal(t));
+            }
+            "FeaturesQuotaTimeout" => {
+                let i = try!(u16::from_str(&value));
+                return Ok(GlusterOption::FeaturesQuotaTimeout(i));
+            }
+            "GeoReplicationIndexing" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::GeoReplicationIndexing(t));
+            }
+            "NetworkFrameTimeout" => {
+                let i = try!(u16::from_str(&value));
+                return Ok(GlusterOption::NetworkFrameTimeout(i));
+            }
+            "NfsEnableIno32" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsEnableIno32(t));
+            }
+            "NfsVolumeAccess" => {
+                let s = AccessMode::from_str(&value);
+                return Ok(GlusterOption::NfsVolumeAccess(s));
+            }
+            "NfsTrustedWrite" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsTrustedWrite(t));
+            }
+            "NfsTrustedSync" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsTrustedSync(t));
+            }
+            "NfsExportDir" => {
+                return Ok(GlusterOption::NfsExportDir(value));
+            }
+            "NfsExportVolumes" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsExportVolumes(t));
+            }
+            "NfsRpcAuthUnix," => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsRpcAuthUnix(t));
+            }
+            "NfsRpcAuthNull" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsRpcAuthNull(t));
+            }
+            "NfsPortsInsecure" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsPortsInsecure(t));
+            }
+            "NfsAddrNamelookup" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsAddrNamelookup(t));
+            }
+            "NfsRegisterWithPortmap" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsRegisterWithPortmap(t));
+            }
+            "NfsDisable" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::NfsDisable(t));
+            }
+            "PerformanceWriteBehindWindowSize" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::PerformanceWriteBehindWindowSize(i));
+            }
+            "PerformanceIoThreadCount" => {
+                let i = try!(u8::from_str(&value));
+                return Ok(GlusterOption::PerformanceIoThreadCount(i));
+            }
+            "PerformanceFlushBehind" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::PerformanceFlushBehind(t));
+            }
+            "PerformanceCacheMaxFileSize" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::PerformanceCacheMaxFileSize(i));
+            }
+            "PerformanceCacheMinFileSize" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::PerformanceCacheMinFileSize(i));
+            }
+            "PerformanceCacheRefreshTimeout" => {
+                let i = try!(u8::from_str(&value));
+                return Ok(GlusterOption::PerformanceCacheRefreshTimeout(i));
+            }
+            "PerformanceCacheSize" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::PerformanceCacheSize(i));
+            }
+            "ServerAllowInsecure" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::ServerAllowInsecure(t));
+            }
+            "ServerGraceTimeout" => {
+                let i = try!(u16::from_str(&value));
+                return Ok(GlusterOption::ServerGraceTimeout(i));
+            }
+            "ServerStatedumpPath" => {
+                let p = PathBuf::from(&value);
+                return Ok(GlusterOption::ServerStatedumpPath(p));
+            }
+            "StorageHealthCheckInterval" => {
+                let i = try!(u16::from_str(&value));
+                return Ok(GlusterOption::StorageHealthCheckInterval(i));
+            }
+            _ => {
+                return Err(GlusterError::new(format!("Unknown option: {}", s)));
+            }
         }
     }
 }
@@ -1972,13 +2164,13 @@ pub fn volume_set_options(volume: &str, settings: Vec<GlusterOption>) -> Result<
         settings.iter().map(|gluster_opt| vol_set(volume, gluster_opt)).collect();
 
     let mut error_list: Vec<String> = Vec::new();
-    for result in results{
-        match result{
-            Ok(_) => {},
-            Err(e) => {error_list.push(e.to_string())},
+    for result in results {
+        match result {
+            Ok(_) => {}
+            Err(e) => error_list.push(e.to_string()),
         }
     }
-    if error_list.len() > 0{
+    if error_list.len() > 0 {
         return Err(GlusterError::new(error_list.join("\n")));
     }
 
