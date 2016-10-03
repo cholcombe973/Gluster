@@ -313,14 +313,18 @@ impl GlusterOption {
             &GlusterOption::ClusterMinFreeDisk(_) => "cluster.min-free-disk".to_string(),
             &GlusterOption::ClusterStripeBlockSize(_) => "cluster.stripe-block-size".to_string(),
             &GlusterOption::ClusterSelfHealDaemon(_) => "cluster.self-heal-daemon".to_string(),
-            &GlusterOption::ClusterEnsureDurability(_) => "cluster.self-heal-daemon".to_string(),
-            &GlusterOption::DiagnosticsBrickLogLevel(_) => "cluster.self-heal-daemon".to_string(),
-            &GlusterOption::DiagnosticsClientLogLevel(_) => "cluster.self-heal-daemon".to_string(),
+            &GlusterOption::ClusterEnsureDurability(_) => "cluster.ensure-durability".to_string(),
+            &GlusterOption::DiagnosticsBrickLogLevel(_) => {
+                "diagnostics.brick-log-level".to_string()
+            },
+            &GlusterOption::DiagnosticsClientLogLevel(_) => {
+                "diagnostics.client-log-level".to_string()
+            }
             &GlusterOption::DiagnosticsLatencyMeasurement(_) => {
                 "diagnostics.latency-measurement".to_string()
             }
             &GlusterOption::DiagnosticsDumpFdStats(_) => {
-                "diagnostics.latency-measurement".to_string()
+                "diagnostics.dump-fd-stats".to_string()
             }
             &GlusterOption::FeaturesReadOnly(_) => "features.read-only".to_string(),
             &GlusterOption::FeaturesLockHeal(_) => "features.lock-heal".to_string(),
@@ -411,164 +415,164 @@ impl GlusterOption {
     }
     pub fn from_str(s: &str, value: String) -> Result<GlusterOption, GlusterError> {
         match s {
-            "AuthAllow" => {
+            "auth-allow" => {
                 return Ok(GlusterOption::AuthAllow(value));
             }
-            "AuthReject" => {
+            "auth-reject" => {
                 return Ok(GlusterOption::AuthReject(value));
             }
-            "ClientGraceTimeout" => {
+            "client-grace-timeout" => {
                 let i = try!(i64::from_str(&value));
                 return Ok(GlusterOption::ClientGraceTimeout(i));
             }
-            "ClusterSelfHealWindowSize" => {
+            "cluster-self-heal-window-size" => {
                 let i = try!(u16::from_str(&value));
                 return Ok(GlusterOption::ClusterSelfHealWindowSize(i));
             }
-            "ClusterDataSelfHealAlgorithm" => {
+            "cluster-data-self-heal-algorithm" => {
                 let s = SelfHealAlgorithm::from_str(&value);
                 return Ok(GlusterOption::ClusterDataSelfHealAlgorithm(s));
             }
-            "ClusterMinFreeDisk" => {
+            "cluster-min-free-disk" => {
                 let i = try!(u8::from_str(&value));
                 return Ok(GlusterOption::ClusterMinFreeDisk(i));
             }
-            "ClusterStripeBlockSize" => {
+            "cluster-stripe-block-size" => {
                 let i = try!(u64::from_str(&value));
                 return Ok(GlusterOption::ClusterStripeBlockSize(i));
             }
-            "ClusterSelfHealDaemon" => {
+            "cluster-self-heal-daemon" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::ClusterSelfHealDaemon(t));
             }
-            "ClusterEnsureDurability" => {
+            "cluster-ensure-durability" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::ClusterEnsureDurability(t));
             }
-            "DiagnosticsBrickLogLevel" => {
+            "diagnostics-brick-log-level" => {
                 let l = log::LogLevel::from_str(&value).unwrap_or(log::LogLevel::Debug);
                 return Ok(GlusterOption::DiagnosticsBrickLogLevel(l));
             }
-            "DiagnosticsClientLogLevel" => {
+            "diagnostics-client-log-level" => {
                 let l = log::LogLevel::from_str(&value).unwrap_or(log::LogLevel::Debug);
                 return Ok(GlusterOption::DiagnosticsClientLogLevel(l));
             }
-            "DiagnosticsLatencyMeasurement" => {
+            "diagnostics-latency-measurement" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::DiagnosticsLatencyMeasurement(t));
             }
-            "DiagnosticsDumpFdStats" => {
+            "diagnostics-dump-fd-stats" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::DiagnosticsDumpFdStats(t));
             }
-            "FeaturesReadOnly" => {
+            "features-read-only" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::FeaturesReadOnly(t));
             }
-            "FeaturesLockHeal" => {
+            "features-lock-heal" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::FeaturesLockHeal(t));
             }
-            "FeaturesQuotaTimeout" => {
+            "features-quota-timeout" => {
                 let i = try!(u16::from_str(&value));
                 return Ok(GlusterOption::FeaturesQuotaTimeout(i));
             }
-            "GeoReplicationIndexing" => {
+            "geo-replication-indexing" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::GeoReplicationIndexing(t));
             }
-            "NetworkFrameTimeout" => {
+            "network-frame-timeout" => {
                 let i = try!(u16::from_str(&value));
                 return Ok(GlusterOption::NetworkFrameTimeout(i));
             }
-            "NfsEnableIno32" => {
+            "nfs-enable-ino32" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsEnableIno32(t));
             }
-            "NfsVolumeAccess" => {
+            "nfs-volume-access" => {
                 let s = AccessMode::from_str(&value);
                 return Ok(GlusterOption::NfsVolumeAccess(s));
             }
-            "NfsTrustedWrite" => {
+            "nfs-trusted-write" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsTrustedWrite(t));
             }
-            "NfsTrustedSync" => {
+            "nfs-trusted-sync" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsTrustedSync(t));
             }
-            "NfsExportDir" => {
+            "nfs-export-dir" => {
                 return Ok(GlusterOption::NfsExportDir(value));
             }
-            "NfsExportVolumes" => {
+            "nfs-export-volumes" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsExportVolumes(t));
             }
-            "NfsRpcAuthUnix," => {
+            "nfs-rpc-auth-unix" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsRpcAuthUnix(t));
             }
-            "NfsRpcAuthNull" => {
+            "nfs-rpc-auth-null" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsRpcAuthNull(t));
             }
-            "NfsPortsInsecure" => {
+            "nfs-ports-insecure" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsPortsInsecure(t));
             }
-            "NfsAddrNamelookup" => {
+            "nfs-addr-namelookup" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsAddrNamelookup(t));
             }
-            "NfsRegisterWithPortmap" => {
+            "nfs-register-with-portmap" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsRegisterWithPortmap(t));
             }
-            "NfsDisable" => {
+            "nfs-disable" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::NfsDisable(t));
             }
-            "PerformanceWriteBehindWindowSize" => {
+            "performance-write-behind-window-size" => {
                 let i = try!(u64::from_str(&value));
                 return Ok(GlusterOption::PerformanceWriteBehindWindowSize(i));
             }
-            "PerformanceIoThreadCount" => {
+            "performance-io-thread-count" => {
                 let i = try!(u8::from_str(&value));
                 return Ok(GlusterOption::PerformanceIoThreadCount(i));
             }
-            "PerformanceFlushBehind" => {
+            "performance-flush-behind" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::PerformanceFlushBehind(t));
             }
-            "PerformanceCacheMaxFileSize" => {
+            "-performance-cache-max-file-size" => {
                 let i = try!(u64::from_str(&value));
                 return Ok(GlusterOption::PerformanceCacheMaxFileSize(i));
             }
-            "PerformanceCacheMinFileSize" => {
+            "-performance-cache-min-file-size" => {
                 let i = try!(u64::from_str(&value));
                 return Ok(GlusterOption::PerformanceCacheMinFileSize(i));
             }
-            "PerformanceCacheRefreshTimeout" => {
+            "performance-cache-refresh-timeout" => {
                 let i = try!(u8::from_str(&value));
                 return Ok(GlusterOption::PerformanceCacheRefreshTimeout(i));
             }
-            "PerformanceCacheSize" => {
+            "performance-cache-size" => {
                 let i = try!(u64::from_str(&value));
                 return Ok(GlusterOption::PerformanceCacheSize(i));
             }
-            "ServerAllowInsecure" => {
+            "server-allow-insecure" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::ServerAllowInsecure(t));
             }
-            "ServerGraceTimeout" => {
+            "server-grace-timeout" => {
                 let i = try!(u16::from_str(&value));
                 return Ok(GlusterOption::ServerGraceTimeout(i));
             }
-            "ServerStatedumpPath" => {
+            "server-statedump-path" => {
                 let p = PathBuf::from(&value);
                 return Ok(GlusterOption::ServerStatedumpPath(p));
             }
-            "StorageHealthCheckInterval" => {
+            "storage-health-check-interval" => {
                 let i = try!(u16::from_str(&value));
                 return Ok(GlusterOption::StorageHealthCheckInterval(i));
             }
