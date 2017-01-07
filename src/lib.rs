@@ -692,11 +692,11 @@ impl fmt::Debug for Brick {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct BrickStatus {
-    brick: Brick,
-    tcp_port: u16,
-    rdma_port: u16,
-    online: bool,
-    pid: u16,
+    pub brick: Brick,
+    pub tcp_port: u16,
+    pub rdma_port: u16,
+    pub online: bool,
+    pub pid: u16,
 }
 
 /// A enum representing the possible States that a Peer can be in
