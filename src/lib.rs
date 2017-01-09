@@ -28,6 +28,8 @@ use regex::Regex;
 use uuid::Uuid;
 
 use std::ascii::AsciiExt;
+use std::cmp::Ord;
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::fmt;
@@ -316,16 +318,14 @@ impl GlusterOption {
             &GlusterOption::ClusterEnsureDurability(_) => "cluster.ensure-durability".to_string(),
             &GlusterOption::DiagnosticsBrickLogLevel(_) => {
                 "diagnostics.brick-log-level".to_string()
-            },
+            }
             &GlusterOption::DiagnosticsClientLogLevel(_) => {
                 "diagnostics.client-log-level".to_string()
             }
             &GlusterOption::DiagnosticsLatencyMeasurement(_) => {
                 "diagnostics.latency-measurement".to_string()
             }
-            &GlusterOption::DiagnosticsDumpFdStats(_) => {
-                "diagnostics.dump-fd-stats".to_string()
-            }
+            &GlusterOption::DiagnosticsDumpFdStats(_) => "diagnostics.dump-fd-stats".to_string(),
             &GlusterOption::FeaturesReadOnly(_) => "features.read-only".to_string(),
             &GlusterOption::FeaturesLockHeal(_) => "features.lock-heal".to_string(),
             &GlusterOption::FeaturesQuotaTimeout(_) => "features.quota-timeout".to_string(),
@@ -699,6 +699,18 @@ pub struct BrickStatus {
     pub pid: u16,
 }
 
+impl Ord for BrickStatus {
+    fn cmp(&self, other: &BrickStatus) -> Ordering {
+        self.brick.peer.cmp(&other.brick.peer)
+    }
+}
+impl PartialOrd for BrickStatus {
+    fn partial_cmp(&self, other: &BrickStatus) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+
 /// A enum representing the possible States that a Peer can be in
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum State {
@@ -779,6 +791,17 @@ pub struct Peer {
     pub hostname: String,
     ///  The current State of the peer
     pub status: State,
+}
+
+impl Ord for Peer {
+    fn cmp(&self, other: &Peer) -> Ordering {
+        self.uuid.cmp(&other.uuid)
+    }
+}
+impl PartialOrd for Peer {
+    fn partial_cmp(&self, other: &Peer) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl fmt::Debug for Peer {
