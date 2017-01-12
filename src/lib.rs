@@ -1914,9 +1914,9 @@ fn parse_volume_status(output_str: String) -> Result<Vec<BrickStatus>, GlusterEr
         if line.starts_with("-") {
             continue;
         }
-        let regex_str = r#"Brick\s+(?P<hostname>[a-zA-Z0-9.])+
-:(?P<path>[/a-zA-z0-9])+
-\s+(?P<tcp>[0-9])+\s+(?P<rdma>[0-9])+\s+(?P<online>[Y,N])+\s+(?P<pid>[0-9])+"#;
+        let regex_str = r#"Brick\s+(?P<hostname>[a-zA-Z0-9.]+)
+:(?P<path>[/a-zA-z0-9]+)
+\s+(?P<tcp>[0-9]+)\s+(?P<rdma>[0-9]+)\s+(?P<online>[Y,N])\s+(?P<pid>[0-9]+)"#;
         let brick_regex = try!(Regex::new(&regex_str.replace("\n", "")));
         match brick_regex.captures(&line) {
             Some(result) => {
