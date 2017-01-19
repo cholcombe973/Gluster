@@ -37,7 +37,7 @@ use std::fs::File;
 use std::io;
 use std::io::Cursor;
 use std::io::prelude::*;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::path::Path;
 use std::str::FromStr;
@@ -1148,7 +1148,7 @@ State:\s+(?P<state_detail>[a-zA-z ]+)\s+\((?P<state>\w+)\)"#;
             .ok_or(GlusterError::new(format!("Invalid state for peer: {}", line))));
 
         // Translate back into an IP address if needed
-        let check_for_ip = hostname.parse::<Ipv4Addr>();
+        let check_for_ip = hostname.parse::<IpAddr>();
 
         if check_for_ip.is_err() {
             // It's a hostname so lets resolve it
@@ -1222,7 +1222,7 @@ pub fn peer_list() -> Result<Vec<Peer>, GlusterError> {
             let mut hostname = v[1].trim().to_string();
 
             // Translate back into an IP address if needed
-            let check_for_ip = hostname.parse::<Ipv4Addr>();
+            let check_for_ip = hostname.parse::<IpAddr>();
 
             if check_for_ip.is_err() {
                 // It's a hostname so lets resolve it
@@ -1516,7 +1516,7 @@ fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, Gluster
                 let mut hostname = brick_parts[0].trim().to_string();
 
                 // Translate back into an IP address if needed
-                let check_for_ip = hostname.parse::<Ipv4Addr>();
+                let check_for_ip = hostname.parse::<IpAddr>();
 
                 if check_for_ip.is_err() {
                     // It's a hostname so lets resolve it
