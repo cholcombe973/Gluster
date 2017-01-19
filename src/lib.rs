@@ -37,7 +37,7 @@ use std::fs::File;
 use std::io;
 use std::io::Cursor;
 use std::io::prelude::*;
-use std::net::Ipv4Addr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
 use std::path::Path;
 use std::str::FromStr;
@@ -1004,7 +1004,7 @@ fn run_command(command: &str,
 /// Returns a GlusterError representing any failure that may have happened
 /// while trying to
 /// query this information.
-pub fn get_local_ip() -> Result<Ipv4Addr, GlusterError> {
+pub fn get_local_ip() -> Result<IpAddr, GlusterError> {
     let mut default_route: Vec<String> = Vec::new();
     default_route.push("route".to_string());
     default_route.push("show".to_string());
@@ -1061,7 +1061,7 @@ pub fn get_local_ip() -> Result<Ipv4Addr, GlusterError> {
 
     // Skip src in the capture
     let local_ip: Vec<&str> = local_address_src.split(" ").skip(1).collect();
-    let ip_addr = try!(local_ip[0].trim().parse::<Ipv4Addr>());
+    let ip_addr = try!(local_ip[0].trim().parse::<IpAddr>());
 
     return Ok(ip_addr);
 }
