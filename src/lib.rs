@@ -186,6 +186,8 @@ pub enum GlusterOption {
     /// simultaneously.
     /// Range: 0-1025
     ClusterSelfHealWindowSize(u16),
+    /// enable/disable client.ssl flag in the volume
+    ClientSsl(Toggle),
     /// Specifies the type of self-heal. If you set the option as "full", the entire file is
     /// copied from source to destinations. If the option is set to "diff" the file blocks
     /// that are not in sync are copied to destinations.
@@ -293,6 +295,8 @@ pub enum GlusterOption {
     /// Specifies the duration for the lock state to be maintained on the server after a
     /// network disconnection.
     ServerGraceTimeout(u16),
+    /// enable/disable server.ssl flag in the volume
+    ServerSsl(Toggle),
     /// Location of the state dump file.
     ServerStatedumpPath(PathBuf),
     /// Number of seconds between health-checks done on the filesystem that is used for the
@@ -306,6 +310,7 @@ impl GlusterOption {
             &GlusterOption::AuthAllow(_) => "auth.allow".to_string(),
             &GlusterOption::AuthReject(_) => "auth.reject".to_string(),
             &GlusterOption::ClientGraceTimeout(_) => "client.grace-timeout".to_string(),
+            &GlusterOption::ClientSsl(_) => "client.ssl".to_string(),
             &GlusterOption::ClusterSelfHealWindowSize(_) => {
                 "cluster.self-heal-window-size".to_string()
             }
@@ -362,6 +367,7 @@ impl GlusterOption {
             &GlusterOption::PerformanceCacheSize(_) => "performance.cache-size".to_string(),
             &GlusterOption::ServerAllowInsecure(_) => "server.allow-insecure".to_string(),
             &GlusterOption::ServerGraceTimeout(_) => "server.grace-timeout".to_string(),
+            &GlusterOption::ServerSsl(_) => "server.ssl".to_string(),
             &GlusterOption::ServerStatedumpPath(_) => "server.statedump-path".to_string(),
             &GlusterOption::StorageHealthCheckInterval(_) => {
                 "storage.health-check-interval".to_string()
@@ -373,6 +379,7 @@ impl GlusterOption {
             &GlusterOption::AuthAllow(ref val) => val.to_string(),
             &GlusterOption::AuthReject(ref val) => val.to_string(),
             &GlusterOption::ClientGraceTimeout(val) => val.to_string(),
+            &GlusterOption::ClientSsl(ref val) => val.to_string(),
             &GlusterOption::ClusterSelfHealWindowSize(val) => val.to_string(),
             &GlusterOption::ClusterDataSelfHealAlgorithm(ref val) => val.to_string(),
             &GlusterOption::ClusterMinFreeDisk(val) => val.to_string(),
@@ -409,6 +416,7 @@ impl GlusterOption {
             &GlusterOption::PerformanceCacheSize(val) => val.to_string(),
             &GlusterOption::ServerAllowInsecure(ref val) => val.to_string(),
             &GlusterOption::ServerGraceTimeout(val) => val.to_string(),
+            &GlusterOption::ServerSsl(ref val) => val.to_string(),
             &GlusterOption::ServerStatedumpPath(ref val) => val.to_string_lossy().into_owned(),
             &GlusterOption::StorageHealthCheckInterval(val) => val.to_string(),
         }
