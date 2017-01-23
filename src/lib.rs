@@ -429,6 +429,10 @@ impl GlusterOption {
             "auth-reject" => {
                 return Ok(GlusterOption::AuthReject(value));
             }
+            "client.ssl" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::ClientSsl(t));
+            }
             "client-grace-timeout" => {
                 let i = try!(i64::from_str(&value));
                 return Ok(GlusterOption::ClientGraceTimeout(i));
@@ -552,11 +556,11 @@ impl GlusterOption {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::PerformanceFlushBehind(t));
             }
-            "-performance-cache-max-file-size" => {
+            "performance-cache-max-file-size" => {
                 let i = try!(u64::from_str(&value));
                 return Ok(GlusterOption::PerformanceCacheMaxFileSize(i));
             }
-            "-performance-cache-min-file-size" => {
+            "performance-cache-min-file-size" => {
                 let i = try!(u64::from_str(&value));
                 return Ok(GlusterOption::PerformanceCacheMinFileSize(i));
             }
@@ -567,6 +571,10 @@ impl GlusterOption {
             "performance-cache-size" => {
                 let i = try!(u64::from_str(&value));
                 return Ok(GlusterOption::PerformanceCacheSize(i));
+            }
+            "server.ssl" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::ServerSsl(t));
             }
             "server-allow-insecure" => {
                 let t = Toggle::from_str(&value);
