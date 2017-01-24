@@ -299,6 +299,10 @@ pub enum GlusterOption {
     ServerSsl(Toggle),
     /// Location of the state dump file.
     ServerStatedumpPath(PathBuf),
+
+    SslAllow(String),
+    SslCertificateDepth(u8),
+    SslCipherList(String),
     /// Number of seconds between health-checks done on the filesystem that is used for the
     /// brick(s). Defaults to 30 seconds, set to 0 to disable.
     StorageHealthCheckInterval(u16),
@@ -369,6 +373,9 @@ impl GlusterOption {
             &GlusterOption::ServerGraceTimeout(_) => "server.grace-timeout".to_string(),
             &GlusterOption::ServerSsl(_) => "server.ssl".to_string(),
             &GlusterOption::ServerStatedumpPath(_) => "server.statedump-path".to_string(),
+            &GlusterOption::SslAllow(_) => "auth.ssl-allow".to_string(),
+            &GlusterOption::SslCertificateDepth(_) => "ssl.certificate-depth".to_string(),
+            &GlusterOption::SslCipherList(_) => "ssl.cipher-list".to_string(),
             &GlusterOption::StorageHealthCheckInterval(_) => {
                 "storage.health-check-interval".to_string()
             }
@@ -417,6 +424,9 @@ impl GlusterOption {
             &GlusterOption::ServerAllowInsecure(ref val) => val.to_string(),
             &GlusterOption::ServerGraceTimeout(val) => val.to_string(),
             &GlusterOption::ServerSsl(ref val) => val.to_string(),
+            &GlusterOption::SslAllow(ref val) => val.to_string(),
+            &GlusterOption::SslCertificateDepth(val) => val.to_string(),
+            &GlusterOption::SslCipherList(ref val) => val.to_string(),
             &GlusterOption::ServerStatedumpPath(ref val) => val.to_string_lossy().into_owned(),
             &GlusterOption::StorageHealthCheckInterval(val) => val.to_string(),
         }
@@ -428,6 +438,9 @@ impl GlusterOption {
             }
             "auth-reject" => {
                 return Ok(GlusterOption::AuthReject(value));
+            }
+            "auth.ssl-allow" => {
+                return Ok(GlusterOption::SslAllow(value));
             }
             "client.ssl" => {
                 let t = Toggle::from_str(&value);
@@ -587,6 +600,13 @@ impl GlusterOption {
             "server-statedump-path" => {
                 let p = PathBuf::from(&value);
                 return Ok(GlusterOption::ServerStatedumpPath(p));
+            }
+            "ssl.certificate-depth" => {
+                let i = try!(u8::from_str(&value));
+                return Ok(GlusterOption::SslCertificateDepth(i));
+            }
+            "ssl.cipher-list" => {
+                return Ok(GlusterOption::SslCipherList(value));
             }
             "storage-health-check-interval" => {
                 let i = try!(u16::from_str(&value));
