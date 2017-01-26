@@ -111,19 +111,60 @@ impl SelfHealAlgorithm {
     }
 }
 
+pub enum SplitBrainPolicy {
+    Ctime,
+    Disable,
+    Majority,
+    Mtime,
+    Size,
+}
+
+impl SplitBrainPolicy {
+    pub fn to_string(&self) -> String {
+        match self {
+            &SplitBrainPolicy::Ctime => "ctime".to_string(),
+            &SplitBrainPolicy::Disable => "none".to_string(),
+            &SplitBrainPolicy::Majority => "majority".to_string(),
+            &SplitBrainPolicy::Mtime => "mtime".to_string(),
+            &SplitBrainPolicy::Size => "size".to_string(),
+        }
+    }
+    pub fn from_str(s: &str) -> Result<SplitBrainPolicy, GlusterError> {
+        match s {
+            "ctime" => Ok(SplitBrainPolicy::Ctime),
+            "none" => Ok(SplitBrainPolicy::Disable),
+            "majority" => Ok(SplitBrainPolicy::Majority),
+            "mtime" => Ok(SplitBrainPolicy::Mtime),
+            "size" => Ok(SplitBrainPolicy::Size),
+            _ => Err(GlusterError::new("Unknown access mode".to_string())),
+        }
+    }
+}
+impl<'a> Into<&'a str> for SplitBrainPolicy {
+    fn into(self) -> &'a str {
+        match self {
+            SplitBrainPolicy::Ctime => "ctime",
+            SplitBrainPolicy::Disable => "none",
+            SplitBrainPolicy::Majority => "majority",
+            SplitBrainPolicy::Mtime => "mtime",
+            SplitBrainPolicy::Size => "size",
+        }
+    }
+}
+
 pub enum AccessMode {
     ReadOnly,
     ReadWrite,
 }
 
 impl AccessMode {
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         match self {
             &AccessMode::ReadOnly => "read-only".to_string(),
             &AccessMode::ReadWrite => "read-write".to_string(),
         }
     }
-    fn from_str(s: &str) -> AccessMode {
+    pub fn from_str(s: &str) -> AccessMode {
         match s {
             "read-only" => AccessMode::ReadOnly,
             "read-write" => AccessMode::ReadWrite,
@@ -156,13 +197,13 @@ impl Into<bool> for Toggle {
 }
 
 impl Toggle {
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         match self {
             &Toggle::On => "On".to_string(),
             &Toggle::Off => "Off".to_string(),
         }
     }
-    fn from_str(s: &str) -> Toggle {
+    pub fn from_str(s: &str) -> Toggle {
         match s {
             "on" => Toggle::On,
             "off" => Toggle::Off,
@@ -208,6 +249,8 @@ pub enum GlusterOption {
     DiagnosticsLatencyMeasurement(Toggle),
     /// Statistics related to file-operations would be tracked.
     DiagnosticsDumpFdStats(Toggle),
+    /// Enables automatic resolution of split brain issues
+    FavoriteChildPolicy(SplitBrainPolicy),
     /// Enables you to mount the entire volume as read-only for all the clients
     /// (including NFS clients) accessing it.
     FeaturesReadOnly(Toggle),
@@ -335,6 +378,7 @@ impl GlusterOption {
                 "diagnostics.latency-measurement".to_string()
             }
             &GlusterOption::DiagnosticsDumpFdStats(_) => "diagnostics.dump-fd-stats".to_string(),
+            &GlusterOption::FavoriteChildPolicy(_) => "cluster.favorite-child-policy".to_string(),
             &GlusterOption::FeaturesReadOnly(_) => "features.read-only".to_string(),
             &GlusterOption::FeaturesLockHeal(_) => "features.lock-heal".to_string(),
             &GlusterOption::FeaturesQuotaTimeout(_) => "features.quota-timeout".to_string(),
@@ -397,6 +441,7 @@ impl GlusterOption {
             &GlusterOption::DiagnosticsClientLogLevel(val) => val.to_string(),
             &GlusterOption::DiagnosticsLatencyMeasurement(ref val) => val.to_string(),
             &GlusterOption::DiagnosticsDumpFdStats(ref val) => val.to_string(),
+            &GlusterOption::FavoriteChildPolicy(ref val) => val.to_string(),
             &GlusterOption::FeaturesReadOnly(ref val) => val.to_string(),
             &GlusterOption::FeaturesLockHeal(ref val) => val.to_string(),
             &GlusterOption::FeaturesQuotaTimeout(val) => val.to_string(),
@@ -445,6 +490,10 @@ impl GlusterOption {
             "client.ssl" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::ClientSsl(t));
+            }
+            "cluster.favorite-child-policy" => {
+                let policy = SplitBrainPolicy::from_str(&value)?;
+                return Ok(GlusterOption::FavoriteChildPolicy(policy));
             }
             "client-grace-timeout" => {
                 let i = try!(i64::from_str(&value));
@@ -622,15 +671,15 @@ impl GlusterOption {
 /// Custom error handling for the library
 #[derive(Debug)]
 pub enum GlusterError {
-    IoError(io::Error),
-    FromUtf8Error(std::string::FromUtf8Error),
-    ParseError(uuid::ParseError),
     AddrParseError(String),
-    ParseIntError(std::num::ParseIntError),
-    ParseBoolErr(std::str::ParseBoolError),
     ByteOrder(byteorder::Error),
-    RegexError(regex::Error),
+    FromUtf8Error(std::string::FromUtf8Error),
+    IoError(io::Error),
     NoVolumesPresent,
+    ParseError(uuid::ParseError),
+    ParseBoolErr(std::str::ParseBoolError),
+    ParseIntError(std::num::ParseIntError),
+    RegexError(regex::Error),
 }
 
 impl GlusterError {
