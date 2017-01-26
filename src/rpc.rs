@@ -28,14 +28,14 @@ const REPLY: i32 = 1;
 const MSG_ACCEPTED: i32 = 0;
 const MSG_DENIED: i32 = 1;
 
-const SUCCESS: i32 = 0;                            // RPC executed successfully
-const PROG_UNAVAIL: i32 = 1;                      // remote hasn't exported program
-const PROG_MISMATCH: i32 = 2;                      // remote can't support version #
-const PROC_UNAVAIL: i32 = 3;                      // program can't support procedure
-const GARBAGE_ARGS: i32 = 4;                      // procedure can't decode params
+const SUCCESS: i32 = 0; // RPC executed successfully
+const PROG_UNAVAIL: i32 = 1; // remote hasn't exported program
+const PROG_MISMATCH: i32 = 2; // remote can't support version #
+const PROC_UNAVAIL: i32 = 3; // program can't support procedure
+const GARBAGE_ARGS: i32 = 4; // procedure can't decode params
 
-const RPC_MISMATCH: i32 = 0;                       // RPC version number != 2
-const AUTH_ERROR: i32 = 1;                         // remote can't authenticate caller
+const RPC_MISMATCH: i32 = 0; // RPC version number != 2
+const AUTH_ERROR: i32 = 1; // remote can't authenticate caller
 
 #[cfg(test)]
 mod tests {
@@ -278,12 +278,13 @@ mod tests {
         };
         let cred_bytes = creds.pack().unwrap();
 
-        let mut call_bytes = super::pack_quota_callheader(xid,
-                                                          prog,
-                                                          vers,
-                                                          super::GlusterAggregatorCommand::GlusterAggregatorGetlimit,
-                                                          cred_bytes,
-                                                          verf_bytes)
+        let mut call_bytes = super::pack_quota_callheader(
+            xid,
+            prog,
+            vers,
+            super::GlusterAggregatorCommand::GlusterAggregatorGetlimit,
+            cred_bytes,
+            verf_bytes)
             .unwrap();
 
         let mut dict: HashMap<String, Vec<u8>> = HashMap::new();
@@ -865,7 +866,8 @@ impl UnPack for GlusterCliUmountResponse {
 pub struct GlusterAuth {
     pub flavor: AuthFlavor, // i32,
     pub stuff: Vec<u8>, /* I think I'm missing a field here
-                         * $29 = {pid = 0, uid = 0, gid = 0, groups = {groups_len = 0, groups_val = 0x0},
+                         * $29 = {pid = 0, uid = 0, gid = 0,
+                         * groups = {groups_len = 0, groups_val = 0x0},
                          * lk_owner = {lk_owner_len = 4,
                          * lk_owner_val = 0x7ffff4119b50 ""}} */
 }
@@ -1000,7 +1002,8 @@ fn htonl(num: u32) -> u32 {
 
 // Takes a generic which will most likely be a Cursor
 // That way the next call can also use the last cursor position
-pub fn unpack_replyheader<T: Read>(data: &mut T) -> Result<(u32, GlusterAuth), super::GlusterError> {
+pub fn unpack_replyheader<T: Read>(data: &mut T)
+                                   -> Result<(u32, GlusterAuth), super::GlusterError> {
     let xid = try!(data.read_u32::<BigEndian>());
     println!("reply xid {}", xid);
     let msg_type = try!(data.read_i32::<BigEndian>());
