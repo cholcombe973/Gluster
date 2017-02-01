@@ -245,6 +245,17 @@ pub enum GlusterOption {
     DiagnosticsBrickLogLevel(log::LogLevel),
     /// The log-level of the clients.
     DiagnosticsClientLogLevel(log::LogLevel),
+    /// Interval in which we want to collect FOP latency samples.  2 means collect a sample every
+    /// 2nd FOP.
+    DiagnosticsFopSampleInterval(u64),
+    /// The maximum size of our FOP sampling ring buffer. Default: 65535
+    DiagnosticsFopSampleBufSize(u64),
+    /// Enable the File Operation count translator
+    DiagnosticsCountFopHits(Toggle),
+    /// Interval (in seconds) at which to auto-dump statistics. Zero disables automatic dumping.
+    DiagnosticsStatsDumpInterval(u64),
+    /// The interval after wish a cached DNS entry will be re-validated.  Default: 24 hrs
+    DiagnosticsStatsDnscacheTtlSec(u64),
     /// Statistics related to the latency of each operation would be tracked.
     DiagnosticsLatencyMeasurement(Toggle),
     /// Statistics related to file-operations would be tracked.
@@ -377,7 +388,20 @@ impl GlusterOption {
             &GlusterOption::DiagnosticsLatencyMeasurement(_) => {
                 "diagnostics.latency-measurement".to_string()
             }
+            &GlusterOption::DiagnosticsCountFopHits(_) => "diagnostics.count-fop-hits".to_string(),
             &GlusterOption::DiagnosticsDumpFdStats(_) => "diagnostics.dump-fd-stats".to_string(),
+            &GlusterOption::DiagnosticsFopSampleBufSize(_) => {
+                "diagnostics.fop-sample-buf-size".to_string()
+            }
+            &GlusterOption::DiagnosticsFopSampleInterval(_) => {
+                "diagnostics.fop-sample-interval".to_string()
+            }
+            &GlusterOption::DiagnosticsStatsDnscacheTtlSec(_) => {
+                "diagnostics.stats-dnscache-ttl-sec".to_string()
+            }
+            &GlusterOption::DiagnosticsStatsDumpInterval(_) => {
+                "diagnostics.stats-dump-interval".to_string()
+            }
             &GlusterOption::FavoriteChildPolicy(_) => "cluster.favorite-child-policy".to_string(),
             &GlusterOption::FeaturesReadOnly(_) => "features.read-only".to_string(),
             &GlusterOption::FeaturesLockHeal(_) => "features.lock-heal".to_string(),
@@ -441,6 +465,11 @@ impl GlusterOption {
             &GlusterOption::DiagnosticsClientLogLevel(val) => val.to_string(),
             &GlusterOption::DiagnosticsLatencyMeasurement(ref val) => val.to_string(),
             &GlusterOption::DiagnosticsDumpFdStats(ref val) => val.to_string(),
+            &GlusterOption::DiagnosticsFopSampleInterval(ref val) => val.to_string(),
+            &GlusterOption::DiagnosticsFopSampleBufSize(ref val) => val.to_string(),
+            &GlusterOption::DiagnosticsCountFopHits(ref val) => val.to_string(),
+            &GlusterOption::DiagnosticsStatsDumpInterval(ref val) => val.to_string(),
+            &GlusterOption::DiagnosticsStatsDnscacheTtlSec(ref val) => val.to_string(),
             &GlusterOption::FavoriteChildPolicy(ref val) => val.to_string(),
             &GlusterOption::FeaturesReadOnly(ref val) => val.to_string(),
             &GlusterOption::FeaturesLockHeal(ref val) => val.to_string(),
@@ -534,6 +563,26 @@ impl GlusterOption {
             "diagnostics-latency-measurement" => {
                 let t = Toggle::from_str(&value);
                 return Ok(GlusterOption::DiagnosticsLatencyMeasurement(t));
+            }
+            "diagnostics.count-fop-hits" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::DiagnosticsCountFopHits(t));
+            }
+            "diagnostics.stats-dump-interval" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::DiagnosticsStatsDumpInterval(i));
+            }
+            "diagnostics.fop-sample-buf-size" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::DiagnosticsFopSampleBufSize(i));
+            }
+            "diagnostics.fop-sample-interval" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::DiagnosticsFopSampleInterval(i));
+            }
+            "diagnostics.stats-dnscache-ttl-sec" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::DiagnosticsStatsDnscacheTtlSec(i));
             }
             "diagnostics-dump-fd-stats" => {
                 let t = Toggle::from_str(&value);
