@@ -2,7 +2,7 @@
 name = "gluster"
 description = "A library to interface with Gluster's CLI.  This is being leveraged by a Juju charm to manage a Gluster deployment"
 documentation = "https://cholcombe973.github.io/Gluster/gluster/index.html"
-version = "0.6.7"
+version = "0.6.8"
 authors = ["Chris Holcombe <xfactor973@gmail.com>"]
 repository = "https://github.com/cholcombe973/Gluster"
 license = "MIT"
@@ -11,5 +11,8 @@ license = "MIT"
 byteorder = "~0.4"
 log = "~0.3"
 regex = "0.1.73"
+serde = "^0.9"
+serde_derive = "^0.9"
+serde_json = "^0.9"
 unix_socket = "~0.5"
-uuid = {version = "~0.3", features = ["v4"]}
+uuid = {version = "~0.4", features = ["v4", "use_std"]}
