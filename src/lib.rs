@@ -16,6 +16,7 @@
 //! Pull requests are more than welcome!
 
 pub mod fop;
+pub mod heal;
 mod rpc;
 
 extern crate byteorder;
