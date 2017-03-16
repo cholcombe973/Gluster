@@ -548,6 +548,16 @@ pub enum GlusterOption {
     PerformanceCacheRefreshTimeout(u8),
     /// Size of the read cache in bytes
     PerformanceCacheSize(u64),
+    /// enable/disable readdir-ahead translator in the volume
+    PerformanceReadDirAhead(Toggle),
+    /// If this option is enabled, the readdir operation is performed parallely on all the bricks,
+    /// thus improving the performance of readdir. Note that the performance improvement is higher
+    /// in large clusters
+    PerformanceParallelReadDir(Toggle),
+    /// maximum size of cache consumed by readdir-ahead xlator. This value is global and total
+    /// memory consumption by readdir-ahead is capped by this value, irrespective of the
+    /// number/size of directories cached
+    PerformanceReadDirAheadCacheLimit(u64),
     /// Allow client connections from unprivileged ports. By default only privileged ports are
     /// allowed. This is a global setting in case insecure ports are to be enabled for all
     /// exports using a single option.
@@ -643,6 +653,13 @@ impl GlusterOption {
                 "performance.cache-refresh-timeout".to_string()
             }
             &GlusterOption::PerformanceCacheSize(_) => "performance.cache-size".to_string(),
+            &GlusterOption::PerformanceReadDirAhead(_) => "performance.readdir-ahead".to_string(),
+            &GlusterOption::PerformanceParallelReadDir(_) => {
+                "performance.parallel-readdir".to_string()
+            }
+            &GlusterOption::PerformanceReadDirAheadCacheLimit(_) => {
+                "performance.rda-cache-limit".to_string()
+            }
             &GlusterOption::ServerAllowInsecure(_) => "server.allow-insecure".to_string(),
             &GlusterOption::ServerGraceTimeout(_) => "server.grace-timeout".to_string(),
             &GlusterOption::ServerSsl(_) => "server.ssl".to_string(),
@@ -701,6 +718,9 @@ impl GlusterOption {
             &GlusterOption::PerformanceCacheMinFileSize(val) => val.to_string(),
             &GlusterOption::PerformanceCacheRefreshTimeout(val) => val.to_string(),
             &GlusterOption::PerformanceCacheSize(val) => val.to_string(),
+            &GlusterOption::PerformanceReadDirAhead(ref val) => val.to_string(),
+            &GlusterOption::PerformanceParallelReadDir(ref val) => val.to_string(),
+            &GlusterOption::PerformanceReadDirAheadCacheLimit(val) => val.to_string(),
             &GlusterOption::ServerAllowInsecure(ref val) => val.to_string(),
             &GlusterOption::ServerGraceTimeout(val) => val.to_string(),
             &GlusterOption::ServerSsl(ref val) => val.to_string(),
@@ -888,6 +908,18 @@ impl GlusterOption {
             "performance-cache-size" => {
                 let i = try!(u64::from_str(&value));
                 return Ok(GlusterOption::PerformanceCacheSize(i));
+            }
+            "performance-readdir-ahead" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::PerformanceReadDirAhead(t));
+            }
+            "performance-parallel-readdir" => {
+                let t = Toggle::from_str(&value);
+                return Ok(GlusterOption::PerformanceReadDirAhead(t));
+            }
+            "performance-readdir-cache-limit" => {
+                let i = try!(u64::from_str(&value));
+                return Ok(GlusterOption::PerformanceReadDirAheadCacheLimit(i));
             }
             "server.ssl" => {
                 let t = Toggle::from_str(&value);
