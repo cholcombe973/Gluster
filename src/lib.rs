@@ -1667,7 +1667,7 @@ pub fn peer_remove(hostname: &String, force: bool) -> Result<i32, GlusterError> 
 /// # Examples
 /// ```
 /// extern crate gluster;
-/// let bytes = gluster::translate_to_bytes("1GB").unwrap();
+/// let bytes: u64 = gluster::translate_to_bytes("1GB").unwrap();
 /// assert_eq!(bytes, 1073741824);
 /// ```
 
