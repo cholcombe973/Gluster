@@ -1671,34 +1671,40 @@ pub fn peer_remove(hostname: &String, force: bool) -> Result<i32, GlusterError> 
 /// assert_eq!(bytes, 1073741824);
 /// ```
 
-pub fn translate_to_bytes(value: &str) -> Option<u64> {
+pub fn translate_to_bytes<T>(value: &str) -> Option<T>
+    where T: FromStr + ::std::ops::Mul<Output = T> + Copy
+{
+    let k = match T::from_str("1024") {
+        Ok(n) => n,
+        Err(_) => return None,
+    };
     if value.ends_with("PB") {
-        match value.trim_right_matches("PB").parse::<u64>() {
-            Ok(n) => return Some(n * 1024 * 1024 * 1024 * 1024 * 1024),
+        match value.trim_right_matches("PB").parse::<T>() {
+            Ok(n) => return Some(n * k * k * k * k * k),
             Err(_) => return None,
         };
     } else if value.ends_with("TB") {
-        match value.trim_right_matches("TB").parse::<u64>() {
-            Ok(n) => return Some(n * 1024 * 1024 * 1024 * 1024),
+        match value.trim_right_matches("TB").parse::<T>() {
+            Ok(n) => return Some(n * k * k * k * k),
             Err(_) => return None,
         };
     } else if value.ends_with("GB") {
-        match value.trim_right_matches("GB").parse::<u64>() {
-            Ok(n) => return Some(n * 1024 * 1024 * 1024),
+        match value.trim_right_matches("GB").parse::<T>() {
+            Ok(n) => return Some(n * k * k * k),
             Err(_) => return None,
         };
     } else if value.ends_with("MB") {
-        match value.trim_right_matches("MB").parse::<u64>() {
-            Ok(n) => return Some(n * 1024 * 1024),
+        match value.trim_right_matches("MB").parse::<T>() {
+            Ok(n) => return Some(n * k * k),
             Err(_) => return None,
         };
     } else if value.ends_with("KB") {
-        match value.trim_right_matches("KB").parse::<u64>() {
-            Ok(n) => return Some(n * 1024),
+        match value.trim_right_matches("KB").parse::<T>() {
+            Ok(n) => return Some(n * k),
             Err(_) => return None,
         };
     } else if value.ends_with("Bytes") {
-        match value.trim_right_matches("Bytes").parse::<u64>() {
+        match value.trim_right_matches("Bytes").parse::<T>() {
             Ok(n) => return Some(n),
             Err(_) => return None,
         };
@@ -2133,7 +2139,7 @@ fn test_quota_list() {
     let result = parse_quota_list("test", test_data.to_string());
     let quotas = vec![Quota {
                           path: PathBuf::from("/"),
-                          limit: 0,
+                          limit: 1024,
                           used: 0,
                       }];
     println!("quota_list: {:?}", result);
@@ -2200,20 +2206,18 @@ fn parse_quota_list(volume: &str, output_str: String) -> Vec<Quota> {
         let parts: Vec<&str> = line.split(" ").filter(|s| !s.is_empty()).collect::<Vec<&str>>();
         // Output should match: ["/", "100.0MB", "80%", "0Bytes", "100.0MB", "No", "No"]
         if parts.len() > 3 {
-            let limit = match translate_to_bytes(parts[1]) {
+            let limit: f64 = match translate_to_bytes(parts[1]) {
                 Some(v) => v,
-                // TODO:  is this sane?
-                None => 0,
+                None => 0.0,
             };
-            let used = match translate_to_bytes(parts[3]) {
+            let used: f64 = match translate_to_bytes(parts[3]) {
                 Some(v) => v,
-                // TODO:  is this sane?
-                None => 0,
+                None => 0.0,
             };
             let quota = Quota {
                 path: PathBuf::from(parts[0].to_string()),
-                limit: limit,
-                used: used,
+                limit: limit as u64,
+                used: used as u64,
             };
             quota_list.push(quota);
         }
