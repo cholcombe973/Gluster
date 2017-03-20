@@ -2,13 +2,13 @@
 name = "gluster"
 description = "A library to interface with Gluster's CLI.  This is being leveraged by a Juju charm to manage a Gluster deployment"
 documentation = "https://cholcombe973.github.io/Gluster/gluster/index.html"
-version = "0.6.10"
+version = "0.7.0"
 authors = ["Chris Holcombe <xfactor973@gmail.com>"]
 repository = "https://github.com/cholcombe973/Gluster"
 license = "MIT"
 
 [dependencies]
-byteorder = "~0.4"
+byteorder = "~1.0"
 log = "~0.3"
 regex = "0.1.73"
 serde = "^0.9"
