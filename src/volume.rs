@@ -69,20 +69,22 @@ impl Transport {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum VolumeTranslator {
-    Stripe,
-    Replica,
+    Arbiter,
     Disperse,
+    Replica,
     Redundancy,
+    Stripe,
 }
 
 impl VolumeTranslator {
     /// Returns a String representation of the selected enum variant.
     fn to_string(self) -> String {
         match self {
-            VolumeTranslator::Stripe => "stripe".to_string(),
-            VolumeTranslator::Replica => "replica".to_string(),
+            VolumeTranslator::Arbiter => "arbiter".to_string(),
             VolumeTranslator::Disperse => "disperse".to_string(),
+            VolumeTranslator::Replica => "replica".to_string(),
             VolumeTranslator::Redundancy => "redundancy".to_string(),
+            VolumeTranslator::Stripe => "stripe".to_string(),
         }
     }
 }
@@ -1097,10 +1099,31 @@ pub fn volume_create_replicated(volume: &str,
                                 force: bool)
                                 -> Result<i32, GlusterError> {
 
-    let mut volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
-    volume_translators.insert(VolumeTranslator::Replica, replica_count.to_string());
+    let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
+    volume_translators.insert(VolumeTranslator::Replica, replica_count);
 
     return volume_create(volume, volume_translators, &transport, bricks, force);
+}
+
+/// The arbiter volume is special subset of replica volumes that is aimed at preventing
+/// split-brains and providing the same consistency guarantees as a normal replica 3 volume
+/// without consuming 3x space.
+/// # Failures
+/// Will return GlusterError if the command fails to run
+pub fn volume_create_arbiter(volume: &str,
+                             replica_count: usize,
+                             arbiter_count: usize,
+                             transport: Transport,
+                             bricks: Vec<Brick>,
+                             force: bool)
+                             -> Result<i32, GlusterError> {
+
+    let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
+    volume_translators.insert(VolumeTranslator::Replica, replica_count);
+    volume_translators.insert(VolumeTranslator::Arbiter, arbiter_count);
+
+    return volume_create(volume, volume_translators, &transport, bricks, force);
+
 }
 
 /// This creates a new striped volume
@@ -1113,8 +1136,8 @@ pub fn volume_create_striped(volume: &str,
                              force: bool)
                              -> Result<i32, GlusterError> {
 
-    let mut volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
-    volume_translators.insert(VolumeTranslator::Stripe, stripe.to_string());
+    let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
+    volume_translators.insert(VolumeTranslator::Stripe, stripe);
 
     return volume_create(volume, volume_translators, &transport, bricks, force);
 }
@@ -1130,9 +1153,9 @@ pub fn volume_create_striped_replicated(volume: &str,
                                         force: bool)
                                         -> Result<i32, GlusterError> {
 
-    let mut volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
-    volume_translators.insert(VolumeTranslator::Stripe, stripe.to_string());
-    volume_translators.insert(VolumeTranslator::Replica, replica.to_string());
+    let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
+    volume_translators.insert(VolumeTranslator::Stripe, stripe);
+    volume_translators.insert(VolumeTranslator::Replica, replica);
 
     return volume_create(volume, volume_translators, &transport, bricks, force);
 }
@@ -1163,9 +1186,9 @@ pub fn volume_create_erasure(volume: &str,
                              force: bool)
                              -> Result<i32, GlusterError> {
 
-    let mut volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
-    volume_translators.insert(VolumeTranslator::Disperse, disperse.to_string());
-    volume_translators.insert(VolumeTranslator::Redundancy, redundancy.to_string());
+    let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
+    volume_translators.insert(VolumeTranslator::Disperse, disperse);
+    volume_translators.insert(VolumeTranslator::Redundancy, redundancy);
 
     return volume_create(volume, volume_translators, &transport, bricks, force);
 
