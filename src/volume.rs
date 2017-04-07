@@ -97,6 +97,7 @@ impl VolumeTranslator {
 /// org/en/latest/Administrator%20Guide/Setting%20Up%20Volumes/)
 #[derive(Debug, Eq, PartialEq)]
 pub enum VolumeType {
+    Arbiter,
     Distribute,
     Stripe,
     Replicate,
@@ -113,6 +114,7 @@ impl VolumeType {
     /// Constructs a new VolumeType from a &str
     pub fn new(name: &str) -> VolumeType {
         match name.trim().to_ascii_lowercase().as_ref() {
+            "arbiter" => VolumeType::Arbiter,
             "distribute" => VolumeType::Distribute,
             "stripe" => VolumeType::Stripe,
             "replicate" => VolumeType::Replicate,
@@ -130,6 +132,7 @@ impl VolumeType {
     /// Returns a enum variant of the given String.
     pub fn from_str(vol_type: &str) -> VolumeType {
         match vol_type {
+            "Arbiter" => VolumeType::Arbiter,
             "Distribute" => VolumeType::Distribute,
             "Stripe" => VolumeType::Stripe,
             "Replicate" => VolumeType::Replicate,
@@ -147,6 +150,7 @@ impl VolumeType {
     /// Returns a String representation of the selected enum variant.
     pub fn to_string(self) -> String {
         match self {
+            VolumeType::Arbiter => "Replicate".to_string(),
             VolumeType::Distribute => "Distribute".to_string(),
             VolumeType::Stripe => "Stripe".to_string(),
             VolumeType::Replicate => "Replicate".to_string(),
