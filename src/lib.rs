@@ -36,6 +36,7 @@ use regex::Regex;
 use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -175,6 +176,112 @@ impl Toggle {
             "true" => Toggle::On,
             "false" => Toggle::Off,
             _ => Toggle::Off,
+        }
+    }
+}
+
+pub enum ScrubSchedule {
+    Hourly,
+    Daily,
+    Weekly,
+    BiWeekly,
+    Monthly,
+}
+impl ScrubSchedule {
+    pub fn to_string(&self) -> String {
+        match self {
+            &ScrubSchedule::Hourly => "hourly".to_string(),
+            &ScrubSchedule::Daily => "daily".to_string(),
+            &ScrubSchedule::Weekly => "weekly".to_string(),
+            &ScrubSchedule::BiWeekly => "biweekly".to_string(),
+            &ScrubSchedule::Monthly => "monthly".to_string(),
+        }
+    }
+    pub fn from_str(s: &str) -> ScrubSchedule {
+        match s {
+            "hourly" => ScrubSchedule::Hourly,
+            "daily" => ScrubSchedule::Daily,
+            "weekly" => ScrubSchedule::Weekly,
+            "biweekly" => ScrubSchedule::BiWeekly,
+            "monthly" => ScrubSchedule::Monthly,
+            _ => ScrubSchedule::Weekly,
+        }
+    }
+}
+pub enum ScrubAggression {
+    Aggressive,
+    Lazy,
+    Normal,
+}
+impl ScrubAggression {
+    pub fn to_string(&self) -> String {
+        match self {
+            &ScrubAggression::Aggressive => "aggressive".to_string(),
+            &ScrubAggression::Lazy => "lazy".to_string(),
+            &ScrubAggression::Normal => "normal".to_string(),
+        }
+    }
+    pub fn from_str(s: &str) -> ScrubAggression {
+        match s {
+            "aggressive" => ScrubAggression::Aggressive,
+            "lazy" => ScrubAggression::Lazy,
+            "normal" => ScrubAggression::Normal,
+            _ => ScrubAggression::Normal,
+        }
+    }
+}
+
+pub enum ScrubControl {
+    Pause,
+    Resume,
+    Status,
+    OnDemand,
+}
+
+impl ScrubControl {
+    fn to_string(&self) -> String {
+        match self {
+            &ScrubControl::Pause => "pause".to_string(),
+            &ScrubControl::Resume => "resume".to_string(),
+            &ScrubControl::Status => "status".to_string(),
+            &ScrubControl::OnDemand => "ondemand".to_string(),
+        }
+    }
+}
+
+impl FromStr for ScrubControl {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "pause" => Ok(ScrubControl::Pause),
+            "resume" => Ok(ScrubControl::Resume),
+            "status" => Ok(ScrubControl::Status),
+            "ondemand" => Ok(ScrubControl::OnDemand),
+            _ => Err(format!("Unknown Control value: {}", s)),
+        }
+    }
+}
+pub enum BitrotOption {
+    ScrubThrottle(ScrubAggression),
+    ScrubFrequency(ScrubSchedule),
+    Scrub(ScrubControl),
+}
+
+impl BitrotOption {
+    fn to_string(&self) -> String {
+        match self {
+            &BitrotOption::ScrubThrottle(_) => "scrub-throttle".to_string(),
+            &BitrotOption::ScrubFrequency(_) => "scrub-frequency".to_string(),
+            &BitrotOption::Scrub(_) => "scrub".to_string(),
+
+        }
+    }
+    fn value(&self) -> String {
+        match self {
+            &BitrotOption::ScrubThrottle(ref val) => val.to_string(),
+            &BitrotOption::ScrubFrequency(ref val) => val.to_string(),
+            &BitrotOption::Scrub(ref val) => val.to_string(),
         }
     }
 }
@@ -842,11 +949,13 @@ fn process_output(output: std::process::Output) -> Result<i32, GlusterError> {
 }
 
 // TODO: Change me to Result<std::process::Output, String>
-fn run_command(command: &str,
-               arg_list: &Vec<String>,
-               as_root: bool,
-               script_mode: bool)
-               -> std::process::Output {
+fn run_command<T>(command: &str,
+                  arg_list: &Vec<T>,
+                  as_root: bool,
+                  script_mode: bool)
+                  -> std::process::Output
+    where T: AsRef<OsStr>
+{
     if as_root {
         let mut cmd = std::process::Command::new("sudo");
         cmd.arg(command);

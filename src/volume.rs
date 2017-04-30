@@ -12,8 +12,8 @@ use peer::{get_peer, Peer, State};
 use regex::Regex;
 use rpc;
 use rpc::{Pack, UnPack};
-use super::{BrickStatus, GlusterError, GlusterOption, process_output, Quota, resolve_to_ip,
-            run_command, translate_to_bytes};
+use super::{BitrotOption, BrickStatus, GlusterError, GlusterOption, process_output, Quota,
+            resolve_to_ip, run_command, translate_to_bytes};
 use unix_socket::UnixStream;
 use uuid::Uuid;
 
@@ -527,7 +527,7 @@ pub fn get_quota_usage(volume: &str) -> Result<u64, GlusterError> {
         None => {
             return Err(GlusterError::new("trusted.glusterfs.quota.size was not returned from \
                                           quotad"
-                .to_string()));
+                                                 .to_string()));
         }
     };
     // Gluster is crazy and encodes a ton of data in this vector.  We're just going
@@ -661,16 +661,40 @@ fn parse_quota_list(volume: &str, output_str: String) -> Vec<Quota> {
     return quota_list;
 }
 
+/// Enable bitrot detection and remediation on the volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
+pub fn volume_enable_bitrot(volume: &str) -> Result<i32, GlusterError> {
+    let arg_list: Vec<&str> = vec!["volume", "bitrot", volume, "enable"];
+    return process_output(run_command("gluster", &arg_list, true, false));
+}
+
+/// Disable bitrot detection and remediation on the volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
+pub fn volume_disable_bitrot(volume: &str) -> Result<i32, GlusterError> {
+    let arg_list: Vec<&str> = vec!["volume", "bitrot", volume, "disable"];
+    return process_output(run_command("gluster", &arg_list, true, false));
+}
+
+/// Set a bitrot option on the volume
+/// # Failures
+/// Will return GlusterError if the command fails to run
+pub fn volume_set_bitrot_option(volume: &str, setting: BitrotOption) -> Result<i32, GlusterError> {
+    let arg_list: Vec<String> = vec!["volume".to_string(),
+                                     "bitrot".to_string(),
+                                     volume.to_string(),
+                                     setting.to_string(),
+                                     setting.value()];
+    return process_output(run_command("gluster", &arg_list, true, true));
+}
+
+
 /// Enable quotas on the volume
 /// # Failures
 /// Will return GlusterError if the command fails to run
 pub fn volume_enable_quotas(volume: &str) -> Result<i32, GlusterError> {
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("volume".to_string());
-    arg_list.push("quota".to_string());
-    arg_list.push(volume.to_string());
-    arg_list.push("enable".to_string());
-
+    let arg_list: Vec<&str> = vec!["volume", "quota", volume, "enable"];
     return process_output(run_command("gluster", &arg_list, true, false));
 }
 
@@ -699,12 +723,7 @@ pub fn volume_quotas_enabled(volume: &str) -> Result<bool, GlusterError> {
 /// # Failures
 /// Will return GlusterError if the command fails to run
 pub fn volume_disable_quotas(volume: &str) -> Result<i32, GlusterError> {
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("volume".to_string());
-    arg_list.push("quota".to_string());
-    arg_list.push(volume.to_string());
-    arg_list.push("disable".to_string());
-
+    let arg_list: Vec<&str> = vec!["volume", "quota", volume, "disable"];
     return process_output(run_command("gluster", &arg_list, true, false));
 }
 
@@ -712,14 +731,8 @@ pub fn volume_disable_quotas(volume: &str) -> Result<i32, GlusterError> {
 /// # Failures
 /// Will return GlusterError if the command fails to run
 pub fn volume_remove_quota(volume: &str, path: PathBuf) -> Result<i32, GlusterError> {
-
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("volume".to_string());
-    arg_list.push("quota".to_string());
-    arg_list.push(volume.to_string());
-    arg_list.push("remove".to_string());
-    arg_list.push(path.to_string_lossy().to_string());
-
+    let path_str = path.to_string_lossy();
+    let arg_list: Vec<&str> = vec!["volume", "quota", volume, "remove", &path_str];
     return process_output(run_command("gluster", &arg_list, true, false));
 }
 
@@ -727,14 +740,10 @@ pub fn volume_remove_quota(volume: &str, path: PathBuf) -> Result<i32, GlusterEr
 /// # Failures
 /// Will return GlusterError if the command fails to run
 pub fn volume_add_quota(volume: &str, path: PathBuf, size: u64) -> Result<i32, GlusterError> {
-
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("volume".to_string());
-    arg_list.push("quota".to_string());
-    arg_list.push(volume.to_string());
-    arg_list.push("limit-usage".to_string());
-    arg_list.push(path.to_string_lossy().to_string());
-    arg_list.push(size.to_string());
+    let path_str = path.to_string_lossy();
+    let size_string = size.to_string();
+    let arg_list: Vec<&str> =
+        vec!["volume", "quota", volume, "limit-usage", &path_str, &size_string];
 
     return process_output(run_command("gluster", &arg_list, true, false));
 }
@@ -777,10 +786,7 @@ fn test_parse_volume_status() {
 /// before volume_remove_brick()
 pub fn ok_to_remove(volume: &str, brick: &Brick) -> Result<bool, GlusterError> {
     // TODO: switch over to native RPC call to eliminate String regex parsing
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("vol".to_string());
-    arg_list.push("status".to_string());
-    arg_list.push(volume.to_string());
+    let arg_list: Vec<&str> = vec!["vol", "status", volume];
 
     let output = run_command("gluster", &arg_list, true, false);
     if !output.status.success() {
@@ -838,7 +844,7 @@ fn parse_volume_status(output_str: String) -> Result<Vec<BrickStatus>, GlusterEr
                     None => {
                         return Err(GlusterError::new("Unable to find tcp port in gluster vol \
                                                       status output"
-                            .to_string()));
+                                                             .to_string()));
                     }
                 };
 
@@ -879,10 +885,7 @@ fn parse_volume_status(output_str: String) -> Result<Vec<BrickStatus>, GlusterEr
 /// # Failures
 /// Will return GlusterError if the command fails to run
 pub fn volume_status(volume: &str) -> Result<Vec<BrickStatus>, GlusterError> {
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("vol".to_string());
-    arg_list.push("status".to_string());
-    arg_list.push(volume.to_string());
+    let arg_list: Vec<&str> = vec!["vol", "status", volume];
 
     let output = run_command("gluster", &arg_list, true, false);
     if !output.status.success() {
@@ -920,20 +923,17 @@ pub fn volume_remove_brick(volume: &str,
     for brick in bricks {
         let ok = try!(ok_to_remove(&volume, &brick));
         if ok {
-            let mut arg_list: Vec<String> = Vec::new();
-            arg_list.push("volume".to_string());
-            arg_list.push("remove-brick".to_string());
-            arg_list.push(volume.to_string());
+            let mut arg_list: Vec<&str> = vec!["volume", "remove-brick", volume];
 
             if force {
-                arg_list.push("force".to_string());
+                arg_list.push("force");
             }
-            arg_list.push("start".to_string());
+            arg_list.push("start");
 
             let status = process_output(run_command("gluster", &arg_list, true, true));
         } else {
             return Err(GlusterError::new("Unable to remove brick due to redundancy failure"
-                .to_string()));
+                                             .to_string()));
         }
     }
     return Ok(0);
@@ -972,13 +972,10 @@ pub fn volume_add_brick(volume: &str,
 /// Will return GlusterError if the command fails to run
 pub fn volume_start(volume: &str, force: bool) -> Result<i32, GlusterError> {
     // Should I check the volume exists first?
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("volume".to_string());
-    arg_list.push("start".to_string());
-    arg_list.push(volume.to_string());
+    let mut arg_list: Vec<&str> = vec!["volume", "start", volume];
 
     if force {
-        arg_list.push("force".to_string());
+        arg_list.push("force");
     }
     return process_output(run_command("gluster", &arg_list, true, true));
 }
@@ -987,13 +984,10 @@ pub fn volume_start(volume: &str, force: bool) -> Result<i32, GlusterError> {
 /// # Failures
 /// Will return GlusterError if the command fails to run
 pub fn volume_stop(volume: &str, force: bool) -> Result<i32, GlusterError> {
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("volume".to_string());
-    arg_list.push("stop".to_string());
-    arg_list.push(volume.to_string());
+    let mut arg_list: Vec<&str> = vec!["volume", "stop", volume];
 
     if force {
-        arg_list.push("force".to_string());
+        arg_list.push("force");
     }
     return process_output(run_command("gluster", &arg_list, true, true));
 }
@@ -1002,10 +996,7 @@ pub fn volume_stop(volume: &str, force: bool) -> Result<i32, GlusterError> {
 /// # Failures
 /// Will return GlusterError if the command fails to run
 pub fn volume_delete(volume: &str) -> Result<i32, GlusterError> {
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("volume".to_string());
-    arg_list.push("delete".to_string());
-    arg_list.push(volume.to_string());
+    let arg_list: Vec<&str> = vec!["volume", "delete", volume];
 
     return process_output(run_command("gluster", &arg_list, true, true));
 }
