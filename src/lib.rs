@@ -837,7 +837,7 @@ pub enum GlusterError {
 
 impl GlusterError {
     /// Create a new GlusterError with a String message
-    fn new(err: String) -> GlusterError {
+    pub fn new(err: String) -> GlusterError {
         GlusterError::IoError(io::Error::new(std::io::ErrorKind::Other, err))
     }
 
@@ -949,12 +949,14 @@ fn process_output(output: std::process::Output) -> Result<i32, GlusterError> {
 }
 
 // TODO: Change me to Result<std::process::Output, String>
-fn run_command<T>(command: &str,
-                  arg_list: &Vec<T>,
-                  as_root: bool,
-                  script_mode: bool)
-                  -> std::process::Output
-    where T: AsRef<OsStr>
+fn run_command<T>(
+    command: &str,
+    arg_list: &Vec<T>,
+    as_root: bool,
+    script_mode: bool,
+) -> std::process::Output
+where
+    T: AsRef<OsStr>,
 {
     if as_root {
         let mut cmd = std::process::Command::new("sudo");
@@ -966,7 +968,9 @@ fn run_command<T>(command: &str,
             cmd.arg(&arg);
         }
         debug!("About to run command: {:?}", cmd);
-        let output = cmd.output().unwrap_or_else(|e| panic!("failed to execute process: {} ", e));
+        let output = cmd.output().unwrap_or_else(
+            |e| panic!("failed to execute process: {} ", e),
+        );
         return output;
     } else {
         let mut cmd = std::process::Command::new(command);
@@ -977,7 +981,9 @@ fn run_command<T>(command: &str,
             cmd.arg(&arg);
         }
         debug!("About to run command: {:?}", cmd);
-        let output = cmd.output().unwrap_or_else(|e| panic!("failed to execute process: {} ", e));
+        let output = cmd.output().unwrap_or_else(
+            |e| panic!("failed to execute process: {} ", e),
+        );
         return output;
     }
 }
@@ -1002,16 +1008,20 @@ pub fn get_local_ip() -> Result<IpAddr, GlusterError> {
     let default_route_parse = match addr_regex.captures(&default_route_stdout) {
         Some(a) => a,
         None => {
-            return Err(GlusterError::new(format!("Unable to parse default route from: {}",
-                                                 &default_route_stdout)));
+            return Err(GlusterError::new(format!(
+                "Unable to parse default route from: {}",
+                &default_route_stdout
+            )));
         }
     };
 
     let addr_raw = match default_route_parse.name("addr") {
         Some(a) => a,
         None => {
-            return Err(GlusterError::new(format!("Unable to find addr default route from: {}",
-                                                 &default_route_stdout)));
+            return Err(GlusterError::new(format!(
+                "Unable to find addr default route from: {}",
+                &default_route_stdout
+            )));
         }
     };
 
@@ -1030,16 +1040,20 @@ pub fn get_local_ip() -> Result<IpAddr, GlusterError> {
     let capture_output = match src_regex.captures(&local_address_stdout) {
         Some(a) => a,
         None => {
-            return Err(GlusterError::new(format!("Unable to parse local_address from: {}",
-                                                 &local_address_stdout)));
+            return Err(GlusterError::new(format!(
+                "Unable to parse local_address from: {}",
+                &local_address_stdout
+            )));
         }
     };
 
     let local_address_src = match capture_output.name("src") {
         Some(a) => a,
         None => {
-            return Err(GlusterError::new(format!("Unable to parse src from: {}",
-                                                 &local_address_stdout)));
+            return Err(GlusterError::new(format!(
+                "Unable to parse src from: {}",
+                &local_address_stdout
+            )));
         }
     };
 
@@ -1059,8 +1073,10 @@ pub fn resolve_to_ip(address: &str) -> Result<String, String> {
 
     if address == "localhost" {
         let local_ip = try!(get_local_ip().map_err(|e| e.to_string()));
-        debug!("hostname is localhost.  Resolving to local ip {}",
-               &local_ip.to_string());
+        debug!(
+            "hostname is localhost.  Resolving to local ip {}",
+            &local_ip.to_string()
+        );
         return Ok(local_ip.to_string());
     }
 
@@ -1078,7 +1094,9 @@ pub fn resolve_to_ip(address: &str) -> Result<String, String> {
         let trimmed = output_str.trim().trim_right_matches(".");
         return Ok(trimmed.to_string());
     } else {
-        return Err(try!(String::from_utf8(output.stderr).map_err(|e| e.to_string())));
+        return Err(try!(
+            String::from_utf8(output.stderr).map_err(|e| e.to_string())
+        ));
     }
 }
 
@@ -1102,7 +1120,8 @@ pub fn get_local_hostname() -> Result<String, GlusterError> {
 /// ```
 
 pub fn translate_to_bytes<T>(value: &str) -> Option<T>
-    where T: FromStr + ::std::ops::Mul<Output = T> + Copy
+where
+    T: FromStr + ::std::ops::Mul<Output = T> + Copy,
 {
     let k = match T::from_str("1024") {
         Ok(n) => n,
@@ -1147,7 +1166,8 @@ pub fn translate_to_bytes<T>(value: &str) -> Option<T>
 pub fn get_local_bricks(volume: &str) -> Result<Vec<Brick>, GlusterError> {
     let vol_info = volume_info(volume)?;
     let local_ip = get_local_ip()?.to_string();
-    let bricks: Vec<Brick> = vol_info.bricks
+    let bricks: Vec<Brick> = vol_info
+        .bricks
         .iter()
         .filter(|brick| brick.peer.hostname == local_ip)
         .map(|brick| brick.clone())
