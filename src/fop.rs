@@ -199,22 +199,24 @@ impl GlusterFOP {
 
 /// Read the stats from glusterd. This stat is typically located at: /var/lib/glusterd/stats
 /// This function removes the mountpoint name from all the keys
-pub fn read_aggr_fop(json_data: &str,
-                     filename: &str)
-                     -> Result<HashMap<String, f64>, super::GlusterError> {
+pub fn read_aggr_fop(
+    json_data: &str,
+    filename: &str,
+) -> Result<HashMap<String, String>, super::GlusterError> {
     // Remove the mountpoint name from all the keys
     let cleaned_data = json_data.replace(&format!("gluster.brick.{}.aggr.", filename), "");
-    let deserialized: HashMap<String, f64> = serde_json::from_str(&cleaned_data)?;
+    let deserialized: HashMap<String, String> = serde_json::from_str(&cleaned_data)?;
     Ok(deserialized)
 }
 
 /// Read the stats from glusterd. This stat is typically located at: /var/lib/glusterd/stats
 /// This function removes the mountpoint name from all the keys
-pub fn read_inter_fop(json_data: &str,
-                      filename: &str)
-                      -> Result<HashMap<String, f64>, super::GlusterError> {
+pub fn read_inter_fop(
+    json_data: &str,
+    filename: &str,
+) -> Result<HashMap<String, String>, super::GlusterError> {
     let cleaned_data = json_data.replace(&format!("gluster.brick.{}.inter.", filename), "");
-    let deserialized: HashMap<String, f64> = serde_json::from_str(&cleaned_data)?;
+    let deserialized: HashMap<String, String> = serde_json::from_str(&cleaned_data)?;
     Ok(deserialized)
 }
 
@@ -229,7 +231,9 @@ fn test_parse_fop_sample() {
 fn parse_fop_sample(input: &str) -> Result<GlusterFOPSample, GlusterError> {
     let parts: Vec<&str> = input.split(",").collect();
     if parts.len() != 10 {
-        return Err(GlusterError::new(format!("Invalid FOP sample: {}.  Unable to parse", input)));
+        return Err(GlusterError::new(
+            format!("Invalid FOP sample: {}.  Unable to parse", input),
+        ));
     }
     Ok(GlusterFOPSample {
         time: parts[0].to_string(),

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cliOutput>
+  <opRet>0</opRet>
+  <opErrno>0</opErrno>
+  <opErrstr/>
+  <volInfo>
+    <volumes>
+      <volume>
+        <name>gv0</name>
+        <id>175ddabd-ea14-4dbf-b797-0f8801e4eb95</id>
+        <status>1</status>
+        <statusStr>Started</statusStr>
+        <snapshotCount>0</snapshotCount>
+        <brickCount>24</brickCount>
+        <distCount>3</distCount>
+        <stripeCount>1</stripeCount>
+        <replicaCount>3</replicaCount>
+        <arbiterCount>0</arbiterCount>
+        <disperseCount>0</disperseCount>
+        <redundancyCount>0</redundancyCount>
+        <type>7</type>
+        <typeStr>Distributed-Replicate</typeStr>
+        <transport>0</transport>
+        <xlators/>
+        <bricks>
+          <brick uuid="fc0924ad-62dd-4d63-8731-daad937a3006">
+            10.144.73.12:/mnt/sdb/brick
+            <name>10.144.73.12:/mnt/sdb/brick</name>
+            <hostUuid>fc0924ad-62dd-4d63-8731-daad937a3006</hostUuid>
+            <isArbiter>0</isArbiter>
+          </brick>
+          <brick uuid="bd7db636-ec69-4973-b6ab-505c4af3805d">10.144.73.13:/mnt/sdb/brick<name>10.144.73.13:/mnt/sdb/brick</name><hostUuid>bd7db636-ec69-4973-b6ab-505c4af3805d</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="db291d51-f748-4613-b771-54efc93aa10a">10.144.73.14:/mnt/sdb/brick<name>10.144.73.14:/mnt/sdb/brick</name><hostUuid>db291d51-f748-4613-b771-54efc93aa10a</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="fc0924ad-62dd-4d63-8731-daad937a3006">10.144.73.12:/mnt/sdc/brick<name>10.144.73.12:/mnt/sdc/brick</name><hostUuid>fc0924ad-62dd-4d63-8731-daad937a3006</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="bd7db636-ec69-4973-b6ab-505c4af3805d">10.144.73.13:/mnt/sdc/brick<name>10.144.73.13:/mnt/sdc/brick</name><hostUuid>bd7db636-ec69-4973-b6ab-505c4af3805d</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="db291d51-f748-4613-b771-54efc93aa10a">10.144.73.14:/mnt/sdc/brick<name>10.144.73.14:/mnt/sdc/brick</name><hostUuid>db291d51-f748-4613-b771-54efc93aa10a</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="fc0924ad-62dd-4d63-8731-daad937a3006">10.144.73.12:/mnt/sdd/brick<name>10.144.73.12:/mnt/sdd/brick</name><hostUuid>fc0924ad-62dd-4d63-8731-daad937a3006</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="bd7db636-ec69-4973-b6ab-505c4af3805d">10.144.73.13:/mnt/sdd/brick<name>10.144.73.13:/mnt/sdd/brick</name><hostUuid>bd7db636-ec69-4973-b6ab-505c4af3805d</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="db291d51-f748-4613-b771-54efc93aa10a">10.144.73.14:/mnt/sdd/brick<name>10.144.73.14:/mnt/sdd/brick</name><hostUuid>db291d51-f748-4613-b771-54efc93aa10a</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="fc0924ad-62dd-4d63-8731-daad937a3006">10.144.73.12:/mnt/sde/brick<name>10.144.73.12:/mnt/sde/brick</name><hostUuid>fc0924ad-62dd-4d63-8731-daad937a3006</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="bd7db636-ec69-4973-b6ab-505c4af3805d">10.144.73.13:/mnt/sde/brick<name>10.144.73.13:/mnt/sde/brick</name><hostUuid>bd7db636-ec69-4973-b6ab-505c4af3805d</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="db291d51-f748-4613-b771-54efc93aa10a">10.144.73.14:/mnt/sde/brick<name>10.144.73.14:/mnt/sde/brick</name><hostUuid>db291d51-f748-4613-b771-54efc93aa10a</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="fc0924ad-62dd-4d63-8731-daad937a3006">10.144.73.12:/mnt/sdf/brick<name>10.144.73.12:/mnt/sdf/brick</name><hostUuid>fc0924ad-62dd-4d63-8731-daad937a3006</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="bd7db636-ec69-4973-b6ab-505c4af3805d">10.144.73.13:/mnt/sdf/brick<name>10.144.73.13:/mnt/sdf/brick</name><hostUuid>bd7db636-ec69-4973-b6ab-505c4af3805d</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="db291d51-f748-4613-b771-54efc93aa10a">10.144.73.14:/mnt/sdf/brick<name>10.144.73.14:/mnt/sdf/brick</name><hostUuid>db291d51-f748-4613-b771-54efc93aa10a</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="fc0924ad-62dd-4d63-8731-daad937a3006">10.144.73.12:/mnt/sdg/brick<name>10.144.73.12:/mnt/sdg/brick</name><hostUuid>fc0924ad-62dd-4d63-8731-daad937a3006</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="bd7db636-ec69-4973-b6ab-505c4af3805d">10.144.73.13:/mnt/sdg/brick<name>10.144.73.13:/mnt/sdg/brick</name><hostUuid>bd7db636-ec69-4973-b6ab-505c4af3805d</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="db291d51-f748-4613-b771-54efc93aa10a">10.144.73.14:/mnt/sdg/brick<name>10.144.73.14:/mnt/sdg/brick</name><hostUuid>db291d51-f748-4613-b771-54efc93aa10a</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="fc0924ad-62dd-4d63-8731-daad937a3006">10.144.73.12:/mnt/sdh/brick<name>10.144.73.12:/mnt/sdh/brick</name><hostUuid>fc0924ad-62dd-4d63-8731-daad937a3006</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="bd7db636-ec69-4973-b6ab-505c4af3805d">10.144.73.13:/mnt/sdh/brick<name>10.144.73.13:/mnt/sdh/brick</name><hostUuid>bd7db636-ec69-4973-b6ab-505c4af3805d</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="db291d51-f748-4613-b771-54efc93aa10a">10.144.73.14:/mnt/sdh/brick<name>10.144.73.14:/mnt/sdh/brick</name><hostUuid>db291d51-f748-4613-b771-54efc93aa10a</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="fc0924ad-62dd-4d63-8731-daad937a3006">10.144.73.12:/mnt/sdi/brick<name>10.144.73.12:/mnt/sdi/brick</name><hostUuid>fc0924ad-62dd-4d63-8731-daad937a3006</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="bd7db636-ec69-4973-b6ab-505c4af3805d">10.144.73.13:/mnt/sdi/brick<name>10.144.73.13:/mnt/sdi/brick</name><hostUuid>bd7db636-ec69-4973-b6ab-505c4af3805d</hostUuid><isArbiter>0</isArbiter></brick>
+          <brick uuid="db291d51-f748-4613-b771-54efc93aa10a">10.144.73.14:/mnt/sdi/brick<name>10.144.73.14:/mnt/sdi/brick</name><hostUuid>db291d51-f748-4613-b771-54efc93aa10a</hostUuid><isArbiter>0</isArbiter></brick>
+        </bricks>
+        <optCount>7</optCount>
+        <options>
+          <option>
+            <name>nfs.disable</name>
+            <value>on</value>
+          </option>
+          <option>
+            <name>transport.address-family</name>
+            <value>inet</value>
+          </option>
+          <option>
+            <name>performance.readdir-ahead</name>
+            <value>on</value>
+          </option>
+          <option>
+            <name>performance.parallel-readdir</name>
+            <value>on</value>
+          </option>
+          <option>
+            <name>cluster.favorite-child-policy</name>
+            <value>mtime</value>
+          </option>
+          <option>
+            <name>features.bitrot</name>
+            <value>on</value>
+          </option>
+          <option>
+            <name>features.scrub</name>
+            <value>Active</value>
+          </option>
+        </options>
+      </volume>
+      <count>1</count>
+    </volumes>
+  </volInfo>
+</cliOutput>

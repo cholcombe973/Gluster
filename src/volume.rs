@@ -273,6 +273,7 @@ fn test_parse_volume_info_xml() {
     use std::fs::File;
     use std::io::Read;
 
+    /*
     let test_data = {
         let mut f = File::open("tests/volume_info.xml").unwrap();
         let mut s = String::new();
@@ -281,6 +282,7 @@ fn test_parse_volume_info_xml() {
     };
     let result: VolumeCliXml = deserialize(test_data.as_bytes()).unwrap();
     println!("vol_info_xml: {:?}", result);
+    */
     /*
     let vol_info = VolumeXml {
         name: "test".to_string(),
