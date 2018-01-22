@@ -15,8 +15,8 @@ use regex::Regex;
 use rpc;
 use rpc::{Pack, UnPack};
 use self::serde_xml_rs::deserialize;
-use super::{BitrotOption, BrickStatus, GlusterError, GlusterOption, process_output, Quota,
-            resolve_to_ip, run_command, translate_to_bytes};
+use super::{process_output, resolve_to_ip, run_command, translate_to_bytes, BitrotOption,
+            BrickStatus, GlusterError, GlusterOption, Quota};
 use unix_socket::UnixStream;
 use uuid::Uuid;
 
@@ -102,27 +102,17 @@ impl VolumeTranslator {
 /// org/en/latest/Administrator%20Guide/Setting%20Up%20Volumes/)
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 pub enum VolumeType {
-    #[serde(rename = "Arbiter")]
-    Arbiter,
-    #[serde(rename = "Distribute")]
-    Distribute,
-    #[serde(rename = "Stripe")]
-    Stripe,
-    #[serde(rename = "Replicate")]
-    Replicate,
-    #[serde(rename = "Striped-Replicate")]
-    StripedAndReplicate,
-    #[serde(rename = "Disperse")]
-    Disperse,
+    #[serde(rename = "Arbiter")] Arbiter,
+    #[serde(rename = "Distribute")] Distribute,
+    #[serde(rename = "Stripe")] Stripe,
+    #[serde(rename = "Replicate")] Replicate,
+    #[serde(rename = "Striped-Replicate")] StripedAndReplicate,
+    #[serde(rename = "Disperse")] Disperse,
     // Tier,
-    #[serde(rename = "Distributed-Stripe")]
-    DistributedAndStripe,
-    #[serde(rename = "Distributed-Replicate")]
-    DistributedAndReplicate,
-    #[serde(rename = "Distributed-Striped-Replicate")]
-    DistributedAndStripedAndReplicate,
-    #[serde(rename = "Distributed-Disperse")]
-    DistributedAndDisperse,
+    #[serde(rename = "Distributed-Stripe")] DistributedAndStripe,
+    #[serde(rename = "Distributed-Replicate")] DistributedAndReplicate,
+    #[serde(rename = "Distributed-Striped-Replicate")] DistributedAndStripedAndReplicate,
+    #[serde(rename = "Distributed-Disperse")] DistributedAndDisperse,
 }
 
 impl VolumeType {
@@ -205,22 +195,16 @@ pub struct Volume {
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 pub struct BrickXml {
     pub name: String,
-    #[serde(rename = "hostUuid")]
-    pub host_uuid: Uuid,
-    #[serde(rename = "isArbiter")]
-    pub is_arbiter: String,
+    #[serde(rename = "hostUuid")] pub host_uuid: Uuid,
+    #[serde(rename = "isArbiter")] pub is_arbiter: String,
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 pub struct VolumeCliXml {
-    #[serde(rename = "opRet")]
-    pub ret: i32,
-    #[serde(rename = "opErrno")]
-    pub errno: i32,
-    #[serde(rename = "opErrStr")]
-    pub err_str: Option<String>,
-    #[serde(rename = "volInfo")]
-    pub volumes: XmlVolumes,
+    #[serde(rename = "opRet")] pub ret: i32,
+    #[serde(rename = "opErrno")] pub errno: i32,
+    #[serde(rename = "opErrStr")] pub err_str: Option<String>,
+    #[serde(rename = "volInfo")] pub volumes: XmlVolumes,
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq)]
@@ -239,33 +223,21 @@ pub struct VolumeXml {
     pub name: String,
     pub id: Uuid,
     pub status: String,
-    #[serde(rename = "statusStr")]
-    pub status_str: String,
-    #[serde(rename = "snapshotCount")]
-    pub snapshot_count: String,
-    #[serde(rename = "brickCount")]
-    pub brick_count: String,
-    #[serde(rename = "distCount")]
-    pub dist_count: String,
-    #[serde(rename = "stripeCount")]
-    pub stripe_count: String,
-    #[serde(rename = "replicaCount")]
-    pub replica_count: String,
-    #[serde(rename = "arbiterCount")]
-    pub arbiter_count: String,
-    #[serde(rename = "disperseCount")]
-    pub disperse_count: String,
-    #[serde(rename = "redundancyCount")]
-    redundancy_count: String,
-    #[serde(rename = "type")]
-    pub vol_type: String,
-    #[serde(rename = "typeStr")]
-    pub type_str: VolumeType,
+    #[serde(rename = "statusStr")] pub status_str: String,
+    #[serde(rename = "snapshotCount")] pub snapshot_count: String,
+    #[serde(rename = "brickCount")] pub brick_count: String,
+    #[serde(rename = "distCount")] pub dist_count: String,
+    #[serde(rename = "stripeCount")] pub stripe_count: String,
+    #[serde(rename = "replicaCount")] pub replica_count: String,
+    #[serde(rename = "arbiterCount")] pub arbiter_count: String,
+    #[serde(rename = "disperseCount")] pub disperse_count: String,
+    #[serde(rename = "redundancyCount")] redundancy_count: String,
+    #[serde(rename = "type")] pub vol_type: String,
+    #[serde(rename = "typeStr")] pub type_str: VolumeType,
     pub transport: String,
     pub xlators: Option<String>,
     pub bricks: Vec<String>,
-    #[serde(rename = "optCount")]
-    pub option_count: String,
+    #[serde(rename = "optCount")] pub option_count: String,
 }
 
 #[test]
@@ -431,9 +403,10 @@ fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, Gluster
     if output_str.trim() == format!("Volume {} does not exist", volume) {
         debug!("Volume {} does not exist", volume);
         println!("Volume {} does not exist", volume);
-        return Err(GlusterError::new(
-            format!("Volume: {} does not exist", volume),
-        ));
+        return Err(GlusterError::new(format!(
+            "Volume: {} does not exist",
+            volume
+        )));
     }
 
     let mut parser_state = ParseState::Root;
@@ -508,9 +481,8 @@ fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, Gluster
                         Err(e) => {
                             return Err(GlusterError::new(format!(
                                 "Failed to resolve hostname: \
-                                                                  {}. Error: {}",
-                                &hostname,
-                                e
+                                 {}. Error: {}",
+                                &hostname, e
                             )));
                         }
                     };
@@ -628,7 +600,7 @@ pub fn get_quota_usage(volume: &str) -> Result<u64, GlusterError> {
     name.push(0); //Null Terminate
     let mut version = "1.20000005".to_string().into_bytes();
     version.push(0); //Null Terminate
-    //No idea what vol_type == 5 means to Gluster
+                     //No idea what vol_type == 5 means to Gluster
     let mut vol_type = "5".to_string().into_bytes();
     vol_type.push(0); //Null Terminate
 
@@ -661,7 +633,7 @@ pub fn get_quota_usage(volume: &str) -> Result<u64, GlusterError> {
         None => {
             return Err(GlusterError::new(
                 "trusted.glusterfs.quota.size was not returned from \
-                                          quotad"
+                 quotad"
                     .to_string(),
             ));
         }
@@ -835,7 +807,6 @@ pub fn volume_set_bitrot_option(volume: &str, setting: BitrotOption) -> Result<i
     return process_output(run_command("gluster", &arg_list, true, true));
 }
 
-
 /// Enable quotas on the volume
 /// # Failures
 /// Will return GlusterError if the command fails to run
@@ -996,7 +967,7 @@ fn parse_volume_status(output_str: String) -> Result<Vec<BrickStatus>, GlusterEr
                     None => {
                         return Err(GlusterError::new(
                             "Unable to find tcp port in gluster vol \
-                                                      status output"
+                             status output"
                                 .to_string(),
                         ));
                     }
@@ -1032,7 +1003,6 @@ fn parse_volume_status(output_str: String) -> Result<Vec<BrickStatus>, GlusterEr
         }
     }
     return Ok(bricks);
-
 }
 
 /// Query the status of the volume given.
@@ -1070,7 +1040,6 @@ pub fn volume_remove_brick(
     bricks: Vec<Brick>,
     force: bool,
 ) -> Result<i32, GlusterError> {
-
     if bricks.is_empty() {
         return Err(GlusterError::new(
             "The brick list is empty. Not shrinking volume".to_string(),
@@ -1090,8 +1059,7 @@ pub fn volume_remove_brick(
             let status = process_output(run_command("gluster", &arg_list, true, true));
         } else {
             return Err(GlusterError::new(
-                "Unable to remove brick due to redundancy failure"
-                    .to_string(),
+                "Unable to remove brick due to redundancy failure".to_string(),
             ));
         }
     }
@@ -1108,7 +1076,6 @@ pub fn volume_add_brick(
     bricks: Vec<Brick>,
     force: bool,
 ) -> Result<i32, GlusterError> {
-
     if bricks.is_empty() {
         return Err(GlusterError::new(
             "The brick list is empty. Not expanding volume".to_string(),
@@ -1179,7 +1146,6 @@ fn volume_create<T: ToString>(
     bricks: Vec<Brick>,
     force: bool,
 ) -> Result<i32, GlusterError> {
-
     if bricks.is_empty() {
         return Err(GlusterError::new(
             "The brick list is empty. Not creating volume".to_string(),
@@ -1250,7 +1216,6 @@ pub fn volume_set_options(volume: &str, settings: Vec<GlusterOption>) -> Result<
     return Ok(0);
 }
 
-
 /// This creates a new replicated volume
 /// # Failures
 /// Will return GlusterError if the command fails to run
@@ -1261,7 +1226,6 @@ pub fn volume_create_replicated(
     bricks: Vec<Brick>,
     force: bool,
 ) -> Result<i32, GlusterError> {
-
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Replica, replica_count);
 
@@ -1281,13 +1245,11 @@ pub fn volume_create_arbiter(
     bricks: Vec<Brick>,
     force: bool,
 ) -> Result<i32, GlusterError> {
-
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Replica, replica_count);
     volume_translators.insert(VolumeTranslator::Arbiter, arbiter_count);
 
     return volume_create(volume, volume_translators, &transport, bricks, force);
-
 }
 
 /// This creates a new striped volume
@@ -1300,7 +1262,6 @@ pub fn volume_create_striped(
     bricks: Vec<Brick>,
     force: bool,
 ) -> Result<i32, GlusterError> {
-
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Stripe, stripe);
 
@@ -1318,7 +1279,6 @@ pub fn volume_create_striped_replicated(
     bricks: Vec<Brick>,
     force: bool,
 ) -> Result<i32, GlusterError> {
-
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Stripe, stripe);
     volume_translators.insert(VolumeTranslator::Replica, replica);
@@ -1335,11 +1295,9 @@ pub fn volume_create_distributed(
     bricks: Vec<Brick>,
     force: bool,
 ) -> Result<i32, GlusterError> {
-
     let volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
 
     return volume_create(volume, volume_translators, &transport, bricks, force);
-
 }
 
 /// This creates a new erasure coded volume
@@ -1353,11 +1311,9 @@ pub fn volume_create_erasure(
     bricks: Vec<Brick>,
     force: bool,
 ) -> Result<i32, GlusterError> {
-
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Disperse, disperse);
     volume_translators.insert(VolumeTranslator::Redundancy, redundancy);
 
     return volume_create(volume, volume_translators, &transport, bricks, force);
-
 }
