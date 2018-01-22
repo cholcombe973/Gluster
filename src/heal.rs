@@ -5,7 +5,7 @@ use volume::Brick;
 use super::GlusterError;
 
 /// Find the self heal count for a given brick
-pub fn get_self_heal_count(brick: Brick) -> Result<usize, GlusterError> {
+pub fn get_self_heal_count(brick: &Brick) -> Result<usize, GlusterError> {
     let brick_path = format!("{}/.glusterfs/indices/xattrop",
                              brick.path.to_string_lossy().into_owned());
     let heal_path = Path::new(&brick_path);
