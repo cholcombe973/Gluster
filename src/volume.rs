@@ -9,14 +9,14 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use self::serde_xml_rs::deserialize;
+use super::{process_output, resolve_to_ip, run_command, translate_to_bytes, BitrotOption,
+            BrickStatus, GlusterError, GlusterOption, Quota};
 use byteorder::{BigEndian, ReadBytesExt};
 use peer::{get_peer, Peer, State};
 use regex::Regex;
 use rpc;
 use rpc::{Pack, UnPack};
-use self::serde_xml_rs::deserialize;
-use super::{process_output, resolve_to_ip, run_command, translate_to_bytes, BitrotOption,
-            BrickStatus, GlusterError, GlusterOption, Quota};
 use unix_socket::UnixStream;
 use uuid::Uuid;
 
@@ -102,17 +102,27 @@ impl VolumeTranslator {
 /// org/en/latest/Administrator%20Guide/Setting%20Up%20Volumes/)
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 pub enum VolumeType {
-    #[serde(rename = "Arbiter")] Arbiter,
-    #[serde(rename = "Distribute")] Distribute,
-    #[serde(rename = "Stripe")] Stripe,
-    #[serde(rename = "Replicate")] Replicate,
-    #[serde(rename = "Striped-Replicate")] StripedAndReplicate,
-    #[serde(rename = "Disperse")] Disperse,
+    #[serde(rename = "Arbiter")]
+    Arbiter,
+    #[serde(rename = "Distribute")]
+    Distribute,
+    #[serde(rename = "Stripe")]
+    Stripe,
+    #[serde(rename = "Replicate")]
+    Replicate,
+    #[serde(rename = "Striped-Replicate")]
+    StripedAndReplicate,
+    #[serde(rename = "Disperse")]
+    Disperse,
     // Tier,
-    #[serde(rename = "Distributed-Stripe")] DistributedAndStripe,
-    #[serde(rename = "Distributed-Replicate")] DistributedAndReplicate,
-    #[serde(rename = "Distributed-Striped-Replicate")] DistributedAndStripedAndReplicate,
-    #[serde(rename = "Distributed-Disperse")] DistributedAndDisperse,
+    #[serde(rename = "Distributed-Stripe")]
+    DistributedAndStripe,
+    #[serde(rename = "Distributed-Replicate")]
+    DistributedAndReplicate,
+    #[serde(rename = "Distributed-Striped-Replicate")]
+    DistributedAndStripedAndReplicate,
+    #[serde(rename = "Distributed-Disperse")]
+    DistributedAndDisperse,
 }
 
 impl VolumeType {
@@ -195,16 +205,22 @@ pub struct Volume {
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 pub struct BrickXml {
     pub name: String,
-    #[serde(rename = "hostUuid")] pub host_uuid: Uuid,
-    #[serde(rename = "isArbiter")] pub is_arbiter: String,
+    #[serde(rename = "hostUuid")]
+    pub host_uuid: Uuid,
+    #[serde(rename = "isArbiter")]
+    pub is_arbiter: String,
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 pub struct VolumeCliXml {
-    #[serde(rename = "opRet")] pub ret: i32,
-    #[serde(rename = "opErrno")] pub errno: i32,
-    #[serde(rename = "opErrStr")] pub err_str: Option<String>,
-    #[serde(rename = "volInfo")] pub volumes: XmlVolumes,
+    #[serde(rename = "opRet")]
+    pub ret: i32,
+    #[serde(rename = "opErrno")]
+    pub errno: i32,
+    #[serde(rename = "opErrStr")]
+    pub err_str: Option<String>,
+    #[serde(rename = "volInfo")]
+    pub volumes: XmlVolumes,
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq)]
@@ -223,21 +239,33 @@ pub struct VolumeXml {
     pub name: String,
     pub id: Uuid,
     pub status: String,
-    #[serde(rename = "statusStr")] pub status_str: String,
-    #[serde(rename = "snapshotCount")] pub snapshot_count: String,
-    #[serde(rename = "brickCount")] pub brick_count: String,
-    #[serde(rename = "distCount")] pub dist_count: String,
-    #[serde(rename = "stripeCount")] pub stripe_count: String,
-    #[serde(rename = "replicaCount")] pub replica_count: String,
-    #[serde(rename = "arbiterCount")] pub arbiter_count: String,
-    #[serde(rename = "disperseCount")] pub disperse_count: String,
-    #[serde(rename = "redundancyCount")] redundancy_count: String,
-    #[serde(rename = "type")] pub vol_type: String,
-    #[serde(rename = "typeStr")] pub type_str: VolumeType,
+    #[serde(rename = "statusStr")]
+    pub status_str: String,
+    #[serde(rename = "snapshotCount")]
+    pub snapshot_count: String,
+    #[serde(rename = "brickCount")]
+    pub brick_count: String,
+    #[serde(rename = "distCount")]
+    pub dist_count: String,
+    #[serde(rename = "stripeCount")]
+    pub stripe_count: String,
+    #[serde(rename = "replicaCount")]
+    pub replica_count: String,
+    #[serde(rename = "arbiterCount")]
+    pub arbiter_count: String,
+    #[serde(rename = "disperseCount")]
+    pub disperse_count: String,
+    #[serde(rename = "redundancyCount")]
+    redundancy_count: String,
+    #[serde(rename = "type")]
+    pub vol_type: String,
+    #[serde(rename = "typeStr")]
+    pub type_str: VolumeType,
     pub transport: String,
     pub xlators: Option<String>,
     pub bricks: Vec<String>,
-    #[serde(rename = "optCount")] pub option_count: String,
+    #[serde(rename = "optCount")]
+    pub option_count: String,
 }
 
 #[test]
@@ -368,16 +396,14 @@ nfs.disable: on
         id: Uuid::parse_str("cae6868d-b080-4ea3-927b-93b5f1e3fe69").unwrap(),
         status: "Started".to_string(),
         transport: Transport::Tcp,
-        bricks: vec![
-            Brick {
-                peer: Peer {
-                    uuid: Uuid::parse_str("78f68270-201a-4d8a-bad3-7cded6e6b7d8").unwrap(),
-                    hostname: "test_ip".to_string(),
-                    status: State::Connected,
-                },
-                path: PathBuf::from("/mnt/xvdf"),
+        bricks: vec![Brick {
+            peer: Peer {
+                uuid: Uuid::parse_str("78f68270-201a-4d8a-bad3-7cded6e6b7d8").unwrap(),
+                hostname: "test_ip".to_string(),
+                status: State::Connected,
             },
-        ],
+            path: PathBuf::from("/mnt/xvdf"),
+        }],
         options: options_map,
     };
     println!("vol_info: {:?}", vol_info);
@@ -684,13 +710,11 @@ fn test_quota_list() {
 / 1.0KB  80%(819Bytes)   0Bytes   1.0KB              No                   No
 "#;
     let result = parse_quota_list("test", test_data.to_string());
-    let quotas = vec![
-        Quota {
-            path: PathBuf::from("/"),
-            limit: 1024,
-            used: 0,
-        },
-    ];
+    let quotas = vec![Quota {
+        path: PathBuf::from("/"),
+        limit: 1024,
+        used: 0,
+    }];
     println!("quota_list: {:?}", result);
     assert_eq!(quotas, result);
 }

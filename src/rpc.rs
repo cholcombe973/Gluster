@@ -8,11 +8,11 @@
 extern crate byteorder;
 extern crate unix_socket;
 
-use std::io::Cursor;
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::io::prelude::*;
-use std::collections::HashMap;
 use self::unix_socket::UnixStream;
+use std::collections::HashMap;
+use std::io::prelude::*;
+use std::io::Cursor;
 
 /// The magic number to use when communicating with Gluster and making CLI RPC
 /// requests
@@ -41,13 +41,13 @@ const AUTH_ERROR: i32 = 1; // remote can't authenticate caller
 mod tests {
     extern crate byteorder;
     extern crate unix_socket;
-    use std::io::Cursor;
-    use std::path::Path;
-    use self::unix_socket::UnixStream;
     use self::byteorder::{BigEndian, ReadBytesExt};
+    use self::unix_socket::UnixStream;
     use super::Pack;
     use super::UnPack;
     use std::collections::HashMap;
+    use std::io::Cursor;
+    use std::path::Path;
 
     #[test]
     fn list_peers() {
@@ -57,128 +57,263 @@ mod tests {
         // This is what the call bytes should look like after being packed
         // XDR says every 4 bytes is a value so I've arranged this vertically to help
         // visualize that.
-        let packed_call_result_bytes: Vec<u8> = vec![0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x01, // msg_type
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00, // union?
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x02, // union?
-                                                     0x00,
-                                                     0x12,
-                                                     0xe5,
-                                                     0xbf, // prog_num
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x02, // prog_vers
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x03, // proc_num
-                                                     0x00,
-                                                     0x05,
-                                                     0xf3,
-                                                     0x97, // cred
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x18, // verf
-
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x04,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-
-                                                     // RPC request struct
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x02,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00,
-                                                     0x00];
+        let packed_call_result_bytes: Vec<u8> = vec![
+            0x00,
+            0x00,
+            0x00,
+            0x01, // msg_type
+            0x00,
+            0x00,
+            0x00,
+            0x00, // union?
+            0x00,
+            0x00,
+            0x00,
+            0x02, // union?
+            0x00,
+            0x12,
+            0xe5,
+            0xbf, // prog_num
+            0x00,
+            0x00,
+            0x00,
+            0x02, // prog_vers
+            0x00,
+            0x00,
+            0x00,
+            0x03, // proc_num
+            0x00,
+            0x05,
+            0xf3,
+            0x97, // cred
+            0x00,
+            0x00,
+            0x00,
+            0x18, // verf
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x04,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            // RPC request struct
+            0x00,
+            0x00,
+            0x00,
+            0x02,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+        ];
 
         let mut reply_bytes = vec![
-            0x00,0x00,0x00,0x01, //msg_type
-            0x00,0x00,0x00,0x01, //msg_type
-            0x00,0x00,0x00,0x00,
-            0x00,0x00,0x00,0x00,
-            0x00,0x00,0x00,0x00,
-            0x00,0x00,0x00,0x00,
-            0x00,0x00,0x00,0x00,
-            0x00,0x00,0x00,0x00,
-            0x00,0x00,0x00,0x8d,
-            0x00,0x00,0x00,0x04,
-            0x00,0x00,0x00,0x05,
-            0x00,0x00,0x00,0x02,
-            0x63,0x6f,0x75,0x6e,
-            0x74,0x00,0x31,0x00,
-            0x00,0x00,0x00,0x11,
-            0x00,0x00,0x00,0x02,
-            0x66,0x72,0x69,0x65,
-            0x6e,0x64,0x36,0x2e,
-            0x63,0x6f,0x6e,0x6e,
-            0x65,0x63,0x74,0x65,
-            0x64,0x00,0x31,0x00,
-            0x00,0x00,0x00,0x10,
-            0x00,0x00,0x00,0x0a,
-            0x66,0x72,0x69,0x65,
-            0x6e,0x64,0x31,0x2e,
-            0x68,0x6f,0x73,0x74,
-            0x6e,0x61,0x6d,0x65,
-            0x00,0x6c,0x6f,0x63,
-            0x61,0x6c,0x68,0x6f,
-            0x73,0x74,0x00,0x00,
-            0x00,0x00,0x0c,0x00,
-            0x00,0x00,0x25,0x66,
-            0x72,0x69,0x65,0x6e,
-            0x64,0x31,0x2e,0x75,
-            0x75,0x69,0x64,0x00,
-            0x34,0x30,0x37,0x32,
-            0x36,0x62,0x38,0x30,
-            0x2d,0x62,0x63,0x30,
-            0x35,0x2d,0x34,0x31,
-            0x66,0x33,0x2d,0x62,
-            0x61,0x39,0x37,0x2d,
-            0x35,0x30,0x34,0x63,
-            0x65,0x33,0x33,0x30,
-            0x31,0x65,0x63,0x65,
-            0x00,0x00,0x00,0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x01, //msg_type
+            0x00,
+            0x00,
+            0x00,
+            0x01, //msg_type
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x8d,
+            0x00,
+            0x00,
+            0x00,
+            0x04,
+            0x00,
+            0x00,
+            0x00,
+            0x05,
+            0x00,
+            0x00,
+            0x00,
+            0x02,
+            0x63,
+            0x6f,
+            0x75,
+            0x6e,
+            0x74,
+            0x00,
+            0x31,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x11,
+            0x00,
+            0x00,
+            0x00,
+            0x02,
+            0x66,
+            0x72,
+            0x69,
+            0x65,
+            0x6e,
+            0x64,
+            0x36,
+            0x2e,
+            0x63,
+            0x6f,
+            0x6e,
+            0x6e,
+            0x65,
+            0x63,
+            0x74,
+            0x65,
+            0x64,
+            0x00,
+            0x31,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x10,
+            0x00,
+            0x00,
+            0x00,
+            0x0a,
+            0x66,
+            0x72,
+            0x69,
+            0x65,
+            0x6e,
+            0x64,
+            0x31,
+            0x2e,
+            0x68,
+            0x6f,
+            0x73,
+            0x74,
+            0x6e,
+            0x61,
+            0x6d,
+            0x65,
+            0x00,
+            0x6c,
+            0x6f,
+            0x63,
+            0x61,
+            0x6c,
+            0x68,
+            0x6f,
+            0x73,
+            0x74,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x0c,
+            0x00,
+            0x00,
+            0x00,
+            0x25,
+            0x66,
+            0x72,
+            0x69,
+            0x65,
+            0x6e,
+            0x64,
+            0x31,
+            0x2e,
+            0x75,
+            0x75,
+            0x69,
+            0x64,
+            0x00,
+            0x34,
+            0x30,
+            0x37,
+            0x32,
+            0x36,
+            0x62,
+            0x38,
+            0x30,
+            0x2d,
+            0x62,
+            0x63,
+            0x30,
+            0x35,
+            0x2d,
+            0x34,
+            0x31,
+            0x66,
+            0x33,
+            0x2d,
+            0x62,
+            0x61,
+            0x39,
+            0x37,
+            0x2d,
+            0x35,
+            0x30,
+            0x34,
+            0x63,
+            0x65,
+            0x33,
+            0x33,
+            0x30,
+            0x31,
+            0x65,
+            0x63,
+            0x65,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
         ];
 
         let xid = 1;
@@ -199,14 +334,14 @@ mod tests {
         };
         let cred_bytes = creds.pack().unwrap();
 
-        let mut call_bytes =
-            super::pack_cli_callheader(xid,
-                                       prog,
-                                       vers,
-                                       super::GlusterCliCommand::GlusterCliListFriends,
-                                       cred_bytes,
-                                       verf_bytes)
-                .unwrap();
+        let mut call_bytes = super::pack_cli_callheader(
+            xid,
+            prog,
+            vers,
+            super::GlusterCliCommand::GlusterCliListFriends,
+            cred_bytes,
+            verf_bytes,
+        ).unwrap();
 
         let peer_request = super::GlusterCliPeerListRequest {
             flags: 2,
@@ -232,7 +367,6 @@ mod tests {
         // super::print_fragment(&reply_bytes);
         //
 
-
         let mut cursor = Cursor::new(&mut reply_bytes[..]);
         let reply = super::unpack_replyheader(&mut cursor).unwrap();
         println!("Reply header parsed result: {:?}", reply);
@@ -241,22 +375,21 @@ mod tests {
     }
     #[test]
     fn list_quota() {
-
-        let mut reply_bytes: Vec<u8> =
-            vec![0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                 0, 0, 0, 0, 117, 0, 0, 0, 0, 0, 0, 0, 228, 0, 0, 0, 6, 0, 0, 0, 4, 0, 0, 0, 2,
-                 116, 121, 112, 101, 0, 53, 0, 0, 0, 0, 28, 0, 0, 0, 24, 116, 114, 117, 115, 116,
-                 101, 100, 46, 103, 108, 117, 115, 116, 101, 114, 102, 115, 46, 113, 117, 111,
-                 116, 97, 46, 115, 105, 122, 101, 0, 0, 0, 0, 1, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117, 115, 116, 101,
-                 114, 102, 115, 46, 97, 110, 99, 101, 115, 116, 114, 121, 46, 112, 97, 116, 104,
-                 0, 47, 0, 0, 0, 0, 21, 0, 0, 0, 16, 116, 114, 117, 115, 116, 101, 100, 46, 103,
-                 108, 117, 115, 116, 101, 114, 102, 115, 46, 100, 104, 116, 0, 0, 0, 0, 1, 0, 0,
-                 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117,
-                 115, 116, 101, 114, 102, 115, 46, 101, 110, 116, 114, 121, 108, 107, 45, 99, 111,
-                 117, 110, 116, 0, 48, 0, 0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117, 115, 116, 101,
-                 114, 102, 115, 46, 105, 110, 111, 100, 101, 108, 107, 45, 99, 111, 117, 110, 116,
-                 0, 48, 0];
+        let mut reply_bytes: Vec<u8> = vec![
+            0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 117, 0, 0, 0, 0, 0, 0, 0, 228, 0, 0, 0, 6, 0, 0, 0, 4, 0, 0, 0, 2, 116, 121, 112,
+            101, 0, 53, 0, 0, 0, 0, 28, 0, 0, 0, 24, 116, 114, 117, 115, 116, 101, 100, 46, 103,
+            108, 117, 115, 116, 101, 114, 102, 115, 46, 113, 117, 111, 116, 97, 46, 115, 105, 122,
+            101, 0, 0, 0, 0, 1, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0,
+            0, 23, 0, 0, 0, 2, 103, 108, 117, 115, 116, 101, 114, 102, 115, 46, 97, 110, 99, 101,
+            115, 116, 114, 121, 46, 112, 97, 116, 104, 0, 47, 0, 0, 0, 0, 21, 0, 0, 0, 16, 116,
+            114, 117, 115, 116, 101, 100, 46, 103, 108, 117, 115, 116, 101, 114, 102, 115, 46, 100,
+            104, 116, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 23, 0, 0,
+            0, 2, 103, 108, 117, 115, 116, 101, 114, 102, 115, 46, 101, 110, 116, 114, 121, 108,
+            107, 45, 99, 111, 117, 110, 116, 0, 48, 0, 0, 0, 0, 23, 0, 0, 0, 2, 103, 108, 117, 115,
+            116, 101, 114, 102, 115, 46, 105, 110, 111, 100, 101, 108, 107, 45, 99, 111, 117, 110,
+            116, 0, 48, 0,
+        ];
 
         let xid = 1;
         let prog = super::GLUSTER_QUOTA_PROGRAM_NUMBER;
@@ -284,12 +417,14 @@ mod tests {
             vers,
             super::GlusterAggregatorCommand::GlusterAggregatorGetlimit,
             cred_bytes,
-            verf_bytes)
-            .unwrap();
+            verf_bytes,
+        ).unwrap();
 
         let mut dict: HashMap<String, Vec<u8>> = HashMap::new();
 
-        let mut gfid = "00000000-0000-0000-0000-000000000001".to_string().into_bytes();
+        let mut gfid = "00000000-0000-0000-0000-000000000001"
+            .to_string()
+            .into_bytes();
         gfid.push(0); //Null Terminate
         let mut name = "test".to_string().into_bytes();
         name.push(0); //Null Terminate
@@ -325,7 +460,8 @@ mod tests {
         let mut cli_response = super::GlusterCliResponse::unpack(&mut cursor).unwrap();
         println!("Quota reply: {:?}", &cli_response);
         // The raw bytes
-        let mut quota_size_bytes = cli_response.dict
+        let mut quota_size_bytes = cli_response
+            .dict
             .get_mut("trusted.glusterfs.quota.size")
             .unwrap();
 
@@ -339,11 +475,17 @@ mod tests {
     fn serialize_dictionary_test() {
         let mut hm: HashMap<String, Vec<u8>> = HashMap::new();
 
-        hm.insert("gfid".to_string(),
-                  "00000000-0000-0000-0000-000000000001".to_string().into_bytes());
+        hm.insert(
+            "gfid".to_string(),
+            "00000000-0000-0000-0000-000000000001"
+                .to_string()
+                .into_bytes(),
+        );
         hm.insert("volume-uuid".to_string(), "test".to_string().into_bytes());
-        hm.insert("default-soft-limit".to_string(),
-                  "80%".to_string().into_bytes());
+        hm.insert(
+            "default-soft-limit".to_string(),
+            "80%".to_string().into_bytes(),
+        );
         hm.insert("type".to_string(), "5".to_string().into_bytes());
 
         // let mut buffer:Vec<u8> = Vec::new();
@@ -364,7 +506,9 @@ pub trait Pack {
 
 /// This trait is for unpacking XDR encoded information
 pub trait UnPack {
-    fn unpack<T: Read>(&mut T) -> Result<Self, super::GlusterError> where Self: Sized;
+    fn unpack<T: Read>(&mut T) -> Result<Self, super::GlusterError>
+    where
+        Self: Sized;
 }
 
 fn unpack_string<T: Read>(data: &mut T, size: u32) -> Result<String, super::GlusterError> {
@@ -405,7 +549,7 @@ fn pack_string<T: Write>(s: &String, buffer: &mut T) -> Result<(), super::Gluste
 }
 
 /// Gluster authorization comes in 4 flavors as they call them.
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum AuthFlavor {
     AuthNull = 0,
     AuthUnix = 1,
@@ -662,7 +806,6 @@ impl UnPack for GlusterCliFsmLogReponse {
     }
 }
 
-
 #[derive(Debug)]
 pub struct GlusterCliGetwdRequest {
     pub unused: i32,
@@ -865,11 +1008,11 @@ impl UnPack for GlusterCliUmountResponse {
 #[derive(Debug)]
 pub struct GlusterAuth {
     pub flavor: AuthFlavor, // i32,
-    pub stuff: Vec<u8>, /* I think I'm missing a field here
-                         * $29 = {pid = 0, uid = 0, gid = 0,
-                         * groups = {groups_len = 0, groups_val = 0x0},
-                         * lk_owner = {lk_owner_len = 4,
-                         * lk_owner_val = 0x7ffff4119b50 ""}} */
+    pub stuff: Vec<u8>,     /* I think I'm missing a field here
+                             * $29 = {pid = 0, uid = 0, gid = 0,
+                             * groups = {groups_len = 0, groups_val = 0x0},
+                             * lk_owner = {lk_owner_len = 4,
+                             * lk_owner_val = 0x7ffff4119b50 ""}} */
 }
 
 #[derive(Debug)]
@@ -941,35 +1084,38 @@ impl Pack for GlusterCred {
 
 /// # Failures
 /// Returns GlusterError if unpacking fails
-pub fn pack_quota_callheader(xid: u32,
-                             prog: i32,
-                             vers: u32,
-                             proc_num: GlusterAggregatorCommand,
-                             cred_flavor: Vec<u8>,
-                             verf: Vec<u8>)
-                             -> Result<Vec<u8>, super::GlusterError> {
+pub fn pack_quota_callheader(
+    xid: u32,
+    prog: i32,
+    vers: u32,
+    proc_num: GlusterAggregatorCommand,
+    cred_flavor: Vec<u8>,
+    verf: Vec<u8>,
+) -> Result<Vec<u8>, super::GlusterError> {
     return pack_callheader(xid, prog, vers, proc_num as u32, cred_flavor, verf);
 }
 
 /// # Failures
 /// Returns GlusterError if unpacking fails
-pub fn pack_cli_callheader(xid: u32,
-                           prog: i32,
-                           vers: u32,
-                           proc_num: GlusterCliCommand,
-                           cred_flavor: Vec<u8>,
-                           verf: Vec<u8>)
-                           -> Result<Vec<u8>, super::GlusterError> {
+pub fn pack_cli_callheader(
+    xid: u32,
+    prog: i32,
+    vers: u32,
+    proc_num: GlusterCliCommand,
+    cred_flavor: Vec<u8>,
+    verf: Vec<u8>,
+) -> Result<Vec<u8>, super::GlusterError> {
     return pack_callheader(xid, prog, vers, proc_num as u32, cred_flavor, verf);
 }
 
-fn pack_callheader(xid: u32,
-                   prog: i32,
-                   vers: u32,
-                   proc_num: u32,
-                   cred_flavor: Vec<u8>,
-                   verf: Vec<u8>)
-                   -> Result<Vec<u8>, super::GlusterError> {
+fn pack_callheader(
+    xid: u32,
+    prog: i32,
+    vers: u32,
+    proc_num: u32,
+    cred_flavor: Vec<u8>,
+    verf: Vec<u8>,
+) -> Result<Vec<u8>, super::GlusterError> {
     let mut buffer: Vec<u8> = Vec::new();
 
     try!(buffer.write_u32::<BigEndian>(xid));
@@ -990,20 +1136,21 @@ fn pack_callheader(xid: u32,
     return Ok(buffer);
 }
 
-#[cfg(target_endian="little")]
+#[cfg(target_endian = "little")]
 fn htonl(num: u32) -> u32 {
     return 0;
 }
 
-#[cfg(target_endian="big")]
+#[cfg(target_endian = "big")]
 fn htonl(num: u32) -> u32 {
     return 0;
 }
 
 // Takes a generic which will most likely be a Cursor
 // That way the next call can also use the last cursor position
-pub fn unpack_replyheader<T: Read>(data: &mut T)
-                                   -> Result<(u32, GlusterAuth), super::GlusterError> {
+pub fn unpack_replyheader<T: Read>(
+    data: &mut T,
+) -> Result<(u32, GlusterAuth), super::GlusterError> {
     let xid = try!(data.read_u32::<BigEndian>());
     println!("reply xid {}", xid);
     let msg_type = try!(data.read_i32::<BigEndian>());
@@ -1011,7 +1158,10 @@ pub fn unpack_replyheader<T: Read>(data: &mut T)
 
     if msg_type != REPLY {
         // Invalid REPLY
-        return Err(super::GlusterError::new(format!("Invalid reply with msg_type: {}", msg_type)));
+        return Err(super::GlusterError::new(format!(
+            "Invalid reply with msg_type: {}",
+            msg_type
+        )));
     }
 
     let stat = try!(data.read_i32::<BigEndian>());
@@ -1021,14 +1171,18 @@ pub fn unpack_replyheader<T: Read>(data: &mut T)
         if reason == RPC_MISMATCH {
             let low = try!(data.read_u32::<BigEndian>());
             let high = try!(data.read_u32::<BigEndian>());
-            return Err(super::GlusterError::new(format!("MSG_DENIED: RPC_MISMATCH low: {} \
-                                                         high: {}",
-                                                        low,
-                                                        high)));
+            return Err(super::GlusterError::new(format!(
+                "MSG_DENIED: RPC_MISMATCH low: {} \
+                 high: {}",
+                low, high
+            )));
         }
         if reason == AUTH_ERROR {
             let err = try!(data.read_u32::<BigEndian>());
-            return Err(super::GlusterError::new(format!("MSG_DENIED: AUTH_ERROR {}", err)));
+            return Err(super::GlusterError::new(format!(
+                "MSG_DENIED: AUTH_ERROR {}",
+                err
+            )));
         }
         return Err(super::GlusterError::new(format!("MSG_DENIED: {}", reason)));
     }
@@ -1046,40 +1200,54 @@ pub fn unpack_replyheader<T: Read>(data: &mut T)
         };
         match accept_message {
             PROG_UNAVAIL => {
-                return Err(super::GlusterError::new("call failed PROG_UNAVAIL".to_string()));
+                return Err(super::GlusterError::new(
+                    "call failed PROG_UNAVAIL".to_string(),
+                ));
             }
             PROG_MISMATCH => {
                 let low = try!(data.read_u32::<BigEndian>());
                 let high = try!(data.read_u32::<BigEndian>());
-                return Err(super::GlusterError::new(format!("Call failed: PROG_MISMATCH low: \
-                                                             {} high: {}",
-                                                            low,
-                                                            high)));
+                return Err(super::GlusterError::new(format!(
+                    "Call failed: PROG_MISMATCH low: \
+                     {} high: {}",
+                    low, high
+                )));
             }
             PROC_UNAVAIL => {
-                return Err(super::GlusterError::new("call failed PROC_UNAVAIL".to_string()));
+                return Err(super::GlusterError::new(
+                    "call failed PROC_UNAVAIL".to_string(),
+                ));
             }
             GARBAGE_ARGS => {
-                return Err(super::GlusterError::new("call failed GARBAGE_ARGS".to_string()));
+                return Err(super::GlusterError::new(
+                    "call failed GARBAGE_ARGS".to_string(),
+                ));
             }
             SUCCESS => {
                 return Ok((xid, rpc_auth));
             }
             _ => {
-                return Err(super::GlusterError::new(format!("Call failed: {}", accept_message)));
+                return Err(super::GlusterError::new(format!(
+                    "Call failed: {}",
+                    accept_message
+                )));
             }
         }
     } else {
-        return Err(super::GlusterError::new(format!("MSG neither denied or accepted: {}", stat)));
+        return Err(super::GlusterError::new(format!(
+            "MSG neither denied or accepted: {}",
+            stat
+        )));
     }
 }
 
 /// # Failures
 /// Returns GlusterError if any failure in sending occurs
-pub fn send_fragment<T: Write>(socket: &mut T,
-                               last: bool,
-                               fragment: &Vec<u8>)
-                               -> Result<usize, super::GlusterError> {
+pub fn send_fragment<T: Write>(
+    socket: &mut T,
+    last: bool,
+    fragment: &Vec<u8>,
+) -> Result<usize, super::GlusterError> {
     let mut header_buffer: Vec<u8> = Vec::new();
     let length: u32 = fragment.len() as u32;
 
@@ -1251,10 +1419,11 @@ fn unpack_key<T: Read>(data: &mut T, size: u32) -> Result<String, super::Gluster
     return Ok(s.trim_matches('\0').to_string());
 }
 
-fn unpack_value<T: Read>(data: &mut T,
-                         size: u32,
-                         skip_null: bool)
-                         -> Result<Vec<u8>, super::GlusterError> {
+fn unpack_value<T: Read>(
+    data: &mut T,
+    size: u32,
+    skip_null: bool,
+) -> Result<Vec<u8>, super::GlusterError> {
     let mut buffer: Vec<u8> = Vec::with_capacity(size as usize);
     for _ in 0..size {
         let b = try!(data.read_u8());
@@ -1305,12 +1474,12 @@ pub fn serialize_dict(dict: &HashMap<String, Vec<u8>>) -> Result<String, super::
     return Ok(ret_string);
 }
 
-pub fn deserialize_dict<R: Read>(cursor: &mut R)
-                                 -> Result<HashMap<String, Vec<u8>>, super::GlusterError> {
+pub fn deserialize_dict<R: Read>(
+    cursor: &mut R,
+) -> Result<HashMap<String, Vec<u8>>, super::GlusterError> {
     let count = try!(cursor.read_u32::<BigEndian>());
     let mut map = HashMap::with_capacity(count as usize);
     for _ in 0..count {
-
         let key_len = try!(cursor.read_u32::<BigEndian>());
         let value_len = try!(cursor.read_u32::<BigEndian>());
 

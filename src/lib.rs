@@ -18,8 +18,8 @@
 pub mod fop;
 pub mod heal;
 pub mod peer;
-pub mod volume;
 mod rpc;
+pub mod volume;
 
 extern crate byteorder;
 #[macro_use]
@@ -44,7 +44,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use volume::{Brick, volume_info};
+use volume::{volume_info, Brick};
 
 // "%0.6lf,%s,%s,%0.4lf,%s,%s,%s,%s,%s,%s",
 // epoch_time, fop_enum_to_pri_string (sample->fop_type),
@@ -274,7 +274,6 @@ impl BitrotOption {
             &BitrotOption::ScrubThrottle(_) => "scrub-throttle".to_string(),
             &BitrotOption::ScrubFrequency(_) => "scrub-frequency".to_string(),
             &BitrotOption::Scrub(_) => "scrub".to_string(),
-
         }
     }
     fn value(&self) -> String {
@@ -905,8 +904,6 @@ impl From<serde_json::Error> for GlusterError {
     }
 }
 
-
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct BrickStatus {
     pub brick: Brick,
@@ -926,8 +923,6 @@ impl PartialOrd for BrickStatus {
         Some(self.cmp(other))
     }
 }
-
-
 
 /// A Quota can be used set limits on the pool usage.  All limits are set in
 /// bytes.
@@ -968,9 +963,8 @@ where
             cmd.arg(&arg);
         }
         debug!("About to run command: {:?}", cmd);
-        let output = cmd.output().unwrap_or_else(
-            |e| panic!("failed to execute process: {} ", e),
-        );
+        let output = cmd.output()
+            .unwrap_or_else(|e| panic!("failed to execute process: {} ", e));
         return output;
     } else {
         let mut cmd = std::process::Command::new(command);
@@ -981,9 +975,8 @@ where
             cmd.arg(&arg);
         }
         debug!("About to run command: {:?}", cmd);
-        let output = cmd.output().unwrap_or_else(
-            |e| panic!("failed to execute process: {} ", e),
-        );
+        let output = cmd.output()
+            .unwrap_or_else(|e| panic!("failed to execute process: {} ", e));
         return output;
     }
 }

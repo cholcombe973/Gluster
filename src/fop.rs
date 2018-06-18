@@ -231,9 +231,10 @@ fn test_parse_fop_sample() {
 fn parse_fop_sample(input: &str) -> Result<GlusterFOPSample, GlusterError> {
     let parts: Vec<&str> = input.split(",").collect();
     if parts.len() != 10 {
-        return Err(GlusterError::new(
-            format!("Invalid FOP sample: {}.  Unable to parse", input),
-        ));
+        return Err(GlusterError::new(format!(
+            "Invalid FOP sample: {}.  Unable to parse",
+            input
+        )));
     }
     Ok(GlusterFOPSample {
         time: parts[0].to_string(),

@@ -1,38 +1,37 @@
-
 use std::ascii::AsciiExt;
 use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::fmt;
 use std::net::IpAddr;
 
+use super::{process_output, resolve_to_ip, run_command, GlusterError};
 use regex::Regex;
-use super::{GlusterError, process_output, resolve_to_ip, run_command};
 use uuid::Uuid;
 
 #[test]
 fn test_parse_peer_status() {
-    let test_result =
-        vec![Peer {
-                 uuid: Uuid::parse_str("afbd338e-881b-4557-8764-52e259885ca3").unwrap(),
-                 hostname: "10.0.3.207".to_string(),
-                 status: State::PeerInCluster,
-             },
-             Peer {
-                 uuid: Uuid::parse_str("fa3b031a-c4ef-43c5-892d-4b909bc5cd5d").unwrap(),
-                 hostname: "10.0.3.208".to_string(),
-                 status: State::PeerInCluster,
-             },
-             Peer {
-                 uuid: Uuid::parse_str("5f45e89a-23c1-41dd-b0cd-fd9cf37f1520").unwrap(),
-                 hostname: "10.0.3.209".to_string(),
-                 status: State::PeerInCluster,
-             }];
+    let test_result = vec![
+        Peer {
+            uuid: Uuid::parse_str("afbd338e-881b-4557-8764-52e259885ca3").unwrap(),
+            hostname: "10.0.3.207".to_string(),
+            status: State::PeerInCluster,
+        },
+        Peer {
+            uuid: Uuid::parse_str("fa3b031a-c4ef-43c5-892d-4b909bc5cd5d").unwrap(),
+            hostname: "10.0.3.208".to_string(),
+            status: State::PeerInCluster,
+        },
+        Peer {
+            uuid: Uuid::parse_str("5f45e89a-23c1-41dd-b0cd-fd9cf37f1520").unwrap(),
+            hostname: "10.0.3.209".to_string(),
+            status: State::PeerInCluster,
+        },
+    ];
     let test_line = r#"Number of Peers: 3 Hostname: 10.0.3.207
 Uuid: afbd338e-881b-4557-8764-52e259885ca3 State: Peer in Cluster (Connected)
 Hostname: 10.0.3.208 Uuid: fa3b031a-c4ef-43c5-892d-4b909bc5cd5d
 State: Peer in Cluster (Connected) Hostname: 10.0.3.209
-Uuid: 5f45e89a-23c1-41dd-b0cd-fd9cf37f1520 State: Peer in Cluster (Connected)"#
-        .to_string();
+Uuid: 5f45e89a-23c1-41dd-b0cd-fd9cf37f1520 State: Peer in Cluster (Connected)"#.to_string();
 
     // Expect a 3 peer result
     let result = parse_peer_status(&test_line);
@@ -129,11 +128,13 @@ impl PartialOrd for Peer {
 
 impl fmt::Debug for Peer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "UUID: {} Hostname: {} Status: {}",
-               self.uuid.hyphenated().to_string(),
-               self.hostname,
-               self.status.to_string())
+        write!(
+            f,
+            "UUID: {} Hostname: {} Status: {}",
+            self.uuid.hyphenated().to_string(),
+            self.hostname,
+            self.status.to_string()
+        )
     }
 }
 
@@ -157,7 +158,10 @@ pub fn get_peer(hostname: &String) -> Result<Peer, GlusterError> {
             return Ok(peer.clone());
         }
     }
-    return Err(GlusterError::new(format!("Unable to find peer by hostname: {}", hostname)));
+    return Err(GlusterError::new(format!(
+        "Unable to find peer by hostname: {}",
+        hostname
+    )));
 }
 
 fn parse_peer_status(line: &String) -> Result<Vec<Peer>, GlusterError> {
@@ -169,14 +173,20 @@ Uuid:\s+(?P<uuid>\w+-\w+-\w+-\w+-\w+)\s+
 State:\s+(?P<state_detail>[a-zA-z ]+)\s+\((?P<state>\w+)\)"#;
     let peer_regex = try!(Regex::new(&regex_str.replace("\n", "")));
     for cap in peer_regex.captures_iter(line) {
-        let hostname = try!(cap.name("hostname")
-            .ok_or(GlusterError::new(format!("Invalid hostname for peer: {}", line))));
+        let hostname = try!(cap.name("hostname").ok_or(GlusterError::new(format!(
+            "Invalid hostname for peer: {}",
+            line
+        ))));
 
-        let uuid = try!(cap.name("uuid")
-            .ok_or(GlusterError::new(format!("Invalid uuid for peer: {}", line))));
+        let uuid = try!(cap.name("uuid").ok_or(GlusterError::new(format!(
+            "Invalid uuid for peer: {}",
+            line
+        ))));
         let uuid_parsed = try!(Uuid::parse_str(uuid));
-        let state_details = try!(cap.name("state_detail")
-            .ok_or(GlusterError::new(format!("Invalid state for peer: {}", line))));
+        let state_details = try!(cap.name("state_detail").ok_or(GlusterError::new(format!(
+            "Invalid state for peer: {}",
+            line
+        ))));
 
         // Translate back into an IP address if needed
         let check_for_ip = hostname.parse::<IpAddr>();
