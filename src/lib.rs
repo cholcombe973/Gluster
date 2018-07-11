@@ -313,9 +313,9 @@ pub enum GlusterOption {
     /// This option makes sure the data/metadata is durable across abrupt shutdown of the brick.
     ClusterEnsureDurability(Toggle),
     /// The log-level of the bricks.
-    DiagnosticsBrickLogLevel(log::LogLevel),
+    DiagnosticsBrickLevel(log::Level),
     /// The log-level of the clients.
-    DiagnosticsClientLogLevel(log::LogLevel),
+    DiagnosticsClientLevel(log::Level),
     /// Interval in which we want to collect FOP latency samples.  2 means collect a sample every
     /// 2nd FOP.
     DiagnosticsFopSampleInterval(u64),
@@ -460,10 +460,10 @@ impl GlusterOption {
             &GlusterOption::ClusterStripeBlockSize(_) => "cluster.stripe-block-size".to_string(),
             &GlusterOption::ClusterSelfHealDaemon(_) => "cluster.self-heal-daemon".to_string(),
             &GlusterOption::ClusterEnsureDurability(_) => "cluster.ensure-durability".to_string(),
-            &GlusterOption::DiagnosticsBrickLogLevel(_) => {
+            &GlusterOption::DiagnosticsBrickLevel(_) => {
                 "diagnostics.brick-log-level".to_string()
             }
-            &GlusterOption::DiagnosticsClientLogLevel(_) => {
+            &GlusterOption::DiagnosticsClientLevel(_) => {
                 "diagnostics.client-log-level".to_string()
             }
             &GlusterOption::DiagnosticsLatencyMeasurement(_) => {
@@ -549,8 +549,8 @@ impl GlusterOption {
             &GlusterOption::ClusterStripeBlockSize(val) => val.to_string(),
             &GlusterOption::ClusterSelfHealDaemon(ref val) => val.to_string(),
             &GlusterOption::ClusterEnsureDurability(ref val) => val.to_string(),
-            &GlusterOption::DiagnosticsBrickLogLevel(val) => val.to_string(),
-            &GlusterOption::DiagnosticsClientLogLevel(val) => val.to_string(),
+            &GlusterOption::DiagnosticsBrickLevel(val) => val.to_string(),
+            &GlusterOption::DiagnosticsClientLevel(val) => val.to_string(),
             &GlusterOption::DiagnosticsLatencyMeasurement(ref val) => val.to_string(),
             &GlusterOption::DiagnosticsDumpFdStats(ref val) => val.to_string(),
             &GlusterOption::DiagnosticsFopSampleInterval(ref val) => val.to_string(),
@@ -644,12 +644,12 @@ impl GlusterOption {
                 return Ok(GlusterOption::ClusterEnsureDurability(t));
             }
             "diagnostics-brick-log-level" => {
-                let l = log::LogLevel::from_str(&value).unwrap_or(log::LogLevel::Debug);
-                return Ok(GlusterOption::DiagnosticsBrickLogLevel(l));
+                let l = log::Level::from_str(&value).unwrap_or(log::Level::Debug);
+                return Ok(GlusterOption::DiagnosticsBrickLevel(l));
             }
             "diagnostics-client-log-level" => {
-                let l = log::LogLevel::from_str(&value).unwrap_or(log::LogLevel::Debug);
-                return Ok(GlusterOption::DiagnosticsClientLogLevel(l));
+                let l = log::Level::from_str(&value).unwrap_or(log::Level::Debug);
+                return Ok(GlusterOption::DiagnosticsClientLevel(l));
             }
             "diagnostics-latency-measurement" => {
                 let t = Toggle::from_str(&value);
