@@ -1019,7 +1019,7 @@ pub fn get_local_ip() -> Result<IpAddr, GlusterError> {
     };
 
     // Skip "via" in the capture
-    let addr: Vec<&str> = addr_raw.split(" ").skip(1).collect();
+    let addr: Vec<&str> = addr_raw.as_str().split(" ").skip(1).collect();
 
     let mut arg_list: Vec<String> = Vec::new();
     arg_list.push("route".to_string());
@@ -1051,7 +1051,7 @@ pub fn get_local_ip() -> Result<IpAddr, GlusterError> {
     };
 
     // Skip src in the capture
-    let local_ip: Vec<&str> = local_address_src.split(" ").skip(1).collect();
+    let local_ip: Vec<&str> = local_address_src.as_str().split(" ").skip(1).collect();
     let ip_addr = try!(local_ip[0].trim().parse::<IpAddr>());
 
     return Ok(ip_addr);

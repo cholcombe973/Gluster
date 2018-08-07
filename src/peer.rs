@@ -1,4 +1,3 @@
-use std::ascii::AsciiExt;
 use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::fmt;
@@ -173,32 +172,32 @@ Uuid:\s+(?P<uuid>\w+-\w+-\w+-\w+-\w+)\s+
 State:\s+(?P<state_detail>[a-zA-z ]+)\s+\((?P<state>\w+)\)"#;
     let peer_regex = try!(Regex::new(&regex_str.replace("\n", "")));
     for cap in peer_regex.captures_iter(line) {
-        let hostname = try!(cap.name("hostname").ok_or(GlusterError::new(format!(
+        let hostname = cap.name("hostname").ok_or(GlusterError::new(format!(
             "Invalid hostname for peer: {}",
             line
-        ))));
+        )))?;
 
-        let uuid = try!(cap.name("uuid").ok_or(GlusterError::new(format!(
+        let uuid = cap.name("uuid").ok_or(GlusterError::new(format!(
             "Invalid uuid for peer: {}",
             line
-        ))));
-        let uuid_parsed = try!(Uuid::parse_str(uuid));
-        let state_details = try!(cap.name("state_detail").ok_or(GlusterError::new(format!(
+        )))?;
+        let uuid_parsed = Uuid::parse_str(uuid.as_str())?;
+        let state_details = cap.name("state_detail").ok_or(GlusterError::new(format!(
             "Invalid state for peer: {}",
             line
-        ))));
+        )))?;
 
         // Translate back into an IP address if needed
-        let check_for_ip = hostname.parse::<IpAddr>();
+        let check_for_ip = hostname.as_str().parse::<IpAddr>();
 
         if check_for_ip.is_err() {
             // It's a hostname so lets resolve it
-            match resolve_to_ip(&hostname) {
+            match resolve_to_ip(hostname.as_str()) {
                 Ok(ip_addr) => {
                     peers.push(Peer {
                         uuid: uuid_parsed,
                         hostname: ip_addr,
-                        status: State::new(state_details),
+                        status: State::new(state_details.as_str()),
                     });
                     continue;
                 }
@@ -210,8 +209,8 @@ State:\s+(?P<state_detail>[a-zA-z ]+)\s+\((?P<state>\w+)\)"#;
             // It's an IP address so lets use it
             peers.push(Peer {
                 uuid: uuid_parsed,
-                hostname: hostname.to_string(),
-                status: State::new(state_details),
+                hostname: hostname.as_str().to_string(),
+                status: State::new(state_details.as_str()),
             });
         }
     }

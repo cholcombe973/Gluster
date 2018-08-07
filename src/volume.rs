@@ -1,15 +1,14 @@
 extern crate serde;
 extern crate serde_xml_rs;
 
-use std::ascii::AsciiExt;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
-use std::io::Cursor;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Cursor};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use self::serde_xml_rs::deserialize;
 use super::{process_output, resolve_to_ip, run_command, translate_to_bytes, BitrotOption,
             BrickStatus, GlusterError, GlusterOption, Quota};
 use byteorder::{BigEndian, ReadBytesExt};
@@ -68,6 +67,25 @@ impl Transport {
             Transport::Rdma => "rdma".to_string(),
             Transport::Tcp => "tcp".to_string(),
             Transport::TcpAndRdma => "tcp,rdma".to_string(),
+        }
+    }
+}
+
+impl FromStr for Transport {
+    type Err = GlusterError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "0" => Ok(Transport::Tcp),
+            "1" => Ok(Transport::Rdma),
+            "2" => Ok(Transport::TcpAndRdma),
+            "tcp" => Ok(Transport::Tcp),
+            "tcp,rdma" => Ok(Transport::TcpAndRdma),
+            "rdma" => Ok(Transport::Rdma),
+            _ => Err(GlusterError::new(format!(
+                "Unknown transport string: {}",
+                s
+            ))),
         }
     }
 }
@@ -364,6 +382,53 @@ pub fn volume_list() -> Option<Vec<String>> {
 }
 
 #[test]
+fn test_parse_volume_info2() {
+    let test_data = r#"
+    type=2
+count=9
+status=1
+sub_count=3
+stripe_count=1
+replica_count=3
+disperse_count=0
+redundancy_count=0
+version=9
+transport-type=0
+volume-id=e7d940ba-8b7c-4e37-a664-2975bc8452fc
+username=b2aa4fe8-5c35-4bc0-8666-a8964e6ec884
+password=4f377e97-554e-4bd5-8c58-34c3b9074db8
+op-version=31000
+client-op-version=30712
+quota-version=1
+tier-enabled=0
+parent_volname=N/A
+restored_from_snap=00000000-0000-0000-0000-000000000000
+snap-max-hard-limit=256
+performance.client-io-threads=on
+nfs.disable=on
+transport.address-family=inet
+server.allow-insecure=on
+features.quota=on
+features.inode-quota=on
+features.quota-deem-statfs=on
+performance.readdir-ahead=on
+performance.parallel-readdir=on
+cluster.favorite-child-policy=mtime
+features.bitrot=on
+features.scrub=Active
+brick-0=10.0.2.81:-mnt-sdc-brick
+brick-1=10.0.2.82:-mnt-sdc-brick
+brick-2=10.0.2.83:-mnt-sdc-brick
+brick-3=10.0.2.81:-mnt-sdd-brick
+brick-4=10.0.2.82:-mnt-sdd-brick
+brick-5=10.0.2.83:-mnt-sdd-brick
+brick-6=10.0.2.81:-mnt-sde-brick
+brick-7=10.0.2.82:-mnt-sde-brick
+brick-8=10.0.2.83:-mnt-sde-brick
+    "#;
+}
+
+#[test]
 fn test_parse_volume_info() {
     let test_data = r#"
 
@@ -410,6 +475,42 @@ nfs.disable: on
     assert_eq!(vol_info, result);
 }
 
+// Advantages: Faster
+// Disadvantages: Needs to be run on a gluster server
+fn parse_volume_info2(volume: &str) -> Result<Volume, GlusterError> {
+    let mut p = PathBuf::from("/var/lib/glusterd/vols");
+    p.push(volume);
+    p.push("info");
+
+    let mut f = File::open(p)?;
+    let f = BufReader::new(f);
+
+    let mut name = String::new();
+    let mut status = String::new();
+    let mut vol_type = String::new();
+    let mut transport = String::new();
+    let mut options: BTreeMap<String, String> = BTreeMap::new();
+    let mut bricks: Vec<Brick> = Vec::new();
+
+    for line in f.lines() {
+        let line = line?;
+        if line.starts_with("transport-type") {
+            transport = line.split("=").collect::<Vec<&str>>()[1].to_string();
+        }
+    }
+    Ok(Volume {
+        name: name,
+        vol_type: VolumeType::from_str(""),
+        id: Uuid::from_str("")?,
+        status: status,
+        transport: Transport::from_str(&transport)?,
+        bricks: bricks,
+        options: options,
+    })
+}
+
+// Advantages: Can be run from anywhere with gluster commands installed
+// Disadvantages: Slower and prone to CLI breakage
 fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, GlusterError> {
     // Variables we will return in a struct
     let mut transport_type = String::new();
@@ -999,16 +1100,16 @@ fn parse_volume_status(output_str: String) -> Result<Vec<BrickStatus>, GlusterEr
 
                 let peer = Peer {
                     uuid: Uuid::new_v4(),
-                    hostname: result.name("hostname").unwrap().to_string(),
+                    hostname: result.name("hostname").unwrap().as_str().to_string(),
                     status: State::Unknown,
                 };
 
                 let brick = Brick {
                     peer: peer,
-                    path: PathBuf::from(result.name("path").unwrap()),
+                    path: PathBuf::from(result.name("path").unwrap().as_str()),
                 };
 
-                let online = match result.name("online").unwrap() {
+                let online = match result.name("online").unwrap().as_str() {
                     "Y" => true,
                     "N" => false,
                     _ => false,
@@ -1016,10 +1117,10 @@ fn parse_volume_status(output_str: String) -> Result<Vec<BrickStatus>, GlusterEr
 
                 let status = BrickStatus {
                     brick: brick,
-                    tcp_port: try!(u16::from_str(result.name("tcp").unwrap())),
-                    rdma_port: try!(u16::from_str(result.name("rdma").unwrap())),
+                    tcp_port: try!(u16::from_str(result.name("tcp").unwrap().as_str())),
+                    rdma_port: try!(u16::from_str(result.name("rdma").unwrap().as_str())),
                     online: online,
-                    pid: try!(u16::from_str(result.name("pid").unwrap())),
+                    pid: try!(u16::from_str(result.name("pid").unwrap().as_str())),
                 };
                 bricks.push(status);
             }
