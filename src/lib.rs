@@ -14,7 +14,6 @@
 //! Please file any bugs found at: [Gluster
 //! Repo](https://github.com/cholcombe973/Gluster)
 //! Pull requests are more than welcome!
-
 pub mod fop;
 pub mod heal;
 pub mod peer;
@@ -22,6 +21,8 @@ mod rpc;
 pub mod volume;
 
 extern crate byteorder;
+#[macro_use]
+extern crate lazy_static;
 #[macro_use]
 extern crate log;
 extern crate regex;
@@ -460,12 +461,8 @@ impl GlusterOption {
             &GlusterOption::ClusterStripeBlockSize(_) => "cluster.stripe-block-size".to_string(),
             &GlusterOption::ClusterSelfHealDaemon(_) => "cluster.self-heal-daemon".to_string(),
             &GlusterOption::ClusterEnsureDurability(_) => "cluster.ensure-durability".to_string(),
-            &GlusterOption::DiagnosticsBrickLevel(_) => {
-                "diagnostics.brick-log-level".to_string()
-            }
-            &GlusterOption::DiagnosticsClientLevel(_) => {
-                "diagnostics.client-log-level".to_string()
-            }
+            &GlusterOption::DiagnosticsBrickLevel(_) => "diagnostics.brick-log-level".to_string(),
+            &GlusterOption::DiagnosticsClientLevel(_) => "diagnostics.client-log-level".to_string(),
             &GlusterOption::DiagnosticsLatencyMeasurement(_) => {
                 "diagnostics.latency-measurement".to_string()
             }
@@ -963,7 +960,8 @@ where
             cmd.arg(&arg);
         }
         debug!("About to run command: {:?}", cmd);
-        let output = cmd.output()
+        let output = cmd
+            .output()
             .unwrap_or_else(|e| panic!("failed to execute process: {} ", e));
         return output;
     } else {
@@ -975,7 +973,8 @@ where
             cmd.arg(&arg);
         }
         debug!("About to run command: {:?}", cmd);
-        let output = cmd.output()
+        let output = cmd
+            .output()
             .unwrap_or_else(|e| panic!("failed to execute process: {} ", e));
         return output;
     }
@@ -994,67 +993,27 @@ pub fn get_local_ip() -> Result<IpAddr, GlusterError> {
     default_route.push("0.0.0.0/0".to_string());
 
     let cmd_output = run_command("ip", &default_route, false, false);
-    let default_route_stdout: String = try!(String::from_utf8(cmd_output.stdout));
+    let default_route_stdout: String = String::from_utf8(cmd_output.stdout)?;
 
     // default via 192.168.1.1 dev wlan0  proto static
-    let addr_regex = try!(Regex::new(r"(?P<addr>via \S+)"));
-    let default_route_parse = match addr_regex.captures(&default_route_stdout) {
-        Some(a) => a,
-        None => {
-            return Err(GlusterError::new(format!(
-                "Unable to parse default route from: {}",
-                &default_route_stdout
-            )));
-        }
-    };
+    let default_addr = default_route_stdout.split_whitespace().collect::<Vec<&str>>();
 
-    let addr_raw = match default_route_parse.name("addr") {
-        Some(a) => a,
-        None => {
-            return Err(GlusterError::new(format!(
-                "Unable to find addr default route from: {}",
-                &default_route_stdout
-            )));
-        }
-    };
-
-    // Skip "via" in the capture
-    let addr: Vec<&str> = addr_raw.as_str().split(" ").skip(1).collect();
-
-    let mut arg_list: Vec<String> = Vec::new();
-    arg_list.push("route".to_string());
-    arg_list.push("get".to_string());
-    arg_list.push(addr[0].to_string());
+    let arg_list = vec![
+        "route".to_string(),
+        "get".to_string(),
+        default_addr[2].to_string(),
+    ];
 
     let src_address_output = run_command("ip", &arg_list, false, false);
     // 192.168.1.1 dev wlan0  src 192.168.1.7
-    let local_address_stdout = try!(String::from_utf8(src_address_output.stdout));
-    let src_regex = try!(Regex::new(r"(?P<src>src \S+)"));
-    let capture_output = match src_regex.captures(&local_address_stdout) {
-        Some(a) => a,
-        None => {
-            return Err(GlusterError::new(format!(
-                "Unable to parse local_address from: {}",
-                &local_address_stdout
-            )));
-        }
-    };
-
-    let local_address_src = match capture_output.name("src") {
-        Some(a) => a,
-        None => {
-            return Err(GlusterError::new(format!(
-                "Unable to parse src from: {}",
-                &local_address_stdout
-            )));
-        }
-    };
+    let src_addr_output: String = String::from_utf8(src_address_output.stdout)?;
+    let local_ip = src_addr_output.split_whitespace().collect::<Vec<&str>>();
 
     // Skip src in the capture
-    let local_ip: Vec<&str> = local_address_src.as_str().split(" ").skip(1).collect();
-    let ip_addr = try!(local_ip[0].trim().parse::<IpAddr>());
+    //let local_ip: Vec<&str> = src_address_output.as_str().split(" ").skip(1).collect();
+    let ip_addr = local_ip[4].trim().parse::<IpAddr>()?;
 
-    return Ok(ip_addr);
+    Ok(ip_addr)
 }
 
 /// Resolves a &str hostname into a ip address.
