@@ -130,7 +130,7 @@ impl fmt::Debug for Peer {
         write!(
             f,
             "UUID: {} Hostname: {} Status: {}",
-            self.uuid.hyphenated().to_string(),
+            self.uuid.to_hyphenated().to_string(),
             self.hostname,
             self.status.to_string()
         )

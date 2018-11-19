@@ -824,7 +824,7 @@ pub enum GlusterError {
     FromUtf8Error(std::string::FromUtf8Error),
     IoError(io::Error),
     NoVolumesPresent,
-    ParseError(uuid::ParseError),
+    ParseError(uuid::parser::ParseError),
     ParseBoolErr(std::str::ParseBoolError),
     ParseIntError(std::num::ParseIntError),
     RegexError(regex::Error),
@@ -865,8 +865,8 @@ impl From<std::string::FromUtf8Error> for GlusterError {
     }
 }
 
-impl From<uuid::ParseError> for GlusterError {
-    fn from(err: uuid::ParseError) -> GlusterError {
+impl From<uuid::parser::ParseError> for GlusterError {
+    fn from(err: uuid::parser::ParseError) -> GlusterError {
         GlusterError::ParseError(err)
     }
 }
