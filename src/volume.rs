@@ -9,8 +9,10 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use super::{process_output, resolve_to_ip, run_command, translate_to_bytes, BitrotOption,
-            BrickStatus, GlusterError, GlusterOption, Quota};
+use super::{
+    process_output, resolve_to_ip, run_command, translate_to_bytes, BitrotOption, BrickStatus,
+    GlusterError, GlusterOption, Quota,
+};
 use byteorder::{BigEndian, ReadBytesExt};
 use peer::{get_peer, Peer, State};
 use regex::Regex;
@@ -62,8 +64,8 @@ impl Transport {
         }
     }
     /// Returns a String representation of the selected enum variant.
-    fn to_string(self) -> String {
-        match self {
+    fn to_string(&self) -> String {
+        match *self {
             Transport::Rdma => "rdma".to_string(),
             Transport::Tcp => "tcp".to_string(),
             Transport::TcpAndRdma => "tcp,rdma".to_string(),
@@ -101,8 +103,8 @@ pub enum VolumeTranslator {
 
 impl VolumeTranslator {
     /// Returns a String representation of the selected enum variant.
-    fn to_string(self) -> String {
-        match self {
+    fn to_string(&self) -> String {
+        match *self {
             VolumeTranslator::Arbiter => "arbiter".to_string(),
             VolumeTranslator::Disperse => "disperse".to_string(),
             VolumeTranslator::Replica => "replica".to_string(),
@@ -181,8 +183,8 @@ impl VolumeType {
     }
 
     /// Returns a String representation of the selected enum variant.
-    pub fn to_string(self) -> String {
-        match self {
+    pub fn to_string(&self) -> String {
+        match *self {
             VolumeType::Arbiter => "Replicate".to_string(),
             VolumeType::Distribute => "Distribute".to_string(),
             VolumeType::Stripe => "Stripe".to_string(),
@@ -378,12 +380,12 @@ pub fn volume_list() -> Option<Vec<String>> {
         }
         volume_names.push(line.trim().to_string());
     }
-    return Some(volume_names);
+    Some(volume_names)
 }
 
 #[test]
 fn test_parse_volume_info2() {
-    let test_data = r#"
+    let _test_data = r#"
     type=2
 count=9
 status=1
@@ -447,7 +449,7 @@ transport.address-family: inet
 performance.readdir-ahead: on
 nfs.disable: on
 "#;
-    let result = parse_volume_info("test", test_data.to_string()).unwrap();
+    let result = parse_volume_info("test", test_data).unwrap();
     let mut options_map: BTreeMap<String, String> = BTreeMap::new();
     options_map.insert("features.inode-quota".to_string(), "off".to_string());
     options_map.insert("features.quota".to_string(), "off".to_string());
@@ -482,36 +484,36 @@ fn parse_volume_info2(volume: &str) -> Result<Volume, GlusterError> {
     p.push(volume);
     p.push("info");
 
-    let mut f = File::open(p)?;
+    let f = File::open(p)?;
     let f = BufReader::new(f);
 
-    let mut name = String::new();
-    let mut status = String::new();
-    let mut vol_type = String::new();
+    let name = String::new();
+    let status = String::new();
+    let _vol_type = String::new();
     let mut transport = String::new();
-    let mut options: BTreeMap<String, String> = BTreeMap::new();
-    let mut bricks: Vec<Brick> = Vec::new();
+    let options: BTreeMap<String, String> = BTreeMap::new();
+    let bricks: Vec<Brick> = Vec::new();
 
     for line in f.lines() {
         let line = line?;
         if line.starts_with("transport-type") {
-            transport = line.split("=").collect::<Vec<&str>>()[1].to_string();
+            transport = line.split('=').collect::<Vec<&str>>()[1].to_string();
         }
     }
     Ok(Volume {
-        name: name,
+        name,
         vol_type: VolumeType::from_str(""),
         id: Uuid::from_str("")?,
-        status: status,
+        status,
         transport: Transport::from_str(&transport)?,
-        bricks: bricks,
-        options: options,
+        bricks,
+        options,
     })
 }
 
 // Advantages: Can be run from anywhere with gluster commands installed
 // Disadvantages: Slower and prone to CLI breakage
-fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, GlusterError> {
+fn parse_volume_info(volume: &str, output_str: &str) -> Result<Volume, GlusterError> {
     // Variables we will return in a struct
     let mut transport_type = String::new();
     let mut volume_type = String::new();
@@ -561,8 +563,8 @@ fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, Gluster
                     // We don't know what this is
                     continue;
                 }
-                let ref name = parts[0];
-                let ref value = parts[1];
+                let name = &parts[0];
+                let value = &parts[1];
 
                 if name == "Volume Name" {
                     volume_name = value.to_owned();
@@ -571,7 +573,7 @@ fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, Gluster
                     volume_type = value.to_owned();
                 }
                 if name == "Volume ID" {
-                    id = try!(Uuid::parse_str(&value));
+                    id = Uuid::parse_str(&value)?;
                 }
                 if name == "Status" {
                     status = value.to_owned();
@@ -587,10 +589,10 @@ fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, Gluster
                     // We don't know what this is
                     continue;
                 }
-                let ref value = parts[1];
+                let value = &parts[1];
 
                 // let brick_str = value;
-                let brick_parts: Vec<&str> = value.split(":").collect();
+                let brick_parts: Vec<&str> = value.split(':').collect();
                 assert!(
                     brick_parts.len() == 2,
                     "Failed to parse bricks from gluster vol info"
@@ -615,11 +617,11 @@ fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, Gluster
                     };
                 }
 
-                let peer: Peer = try!(get_peer(&hostname.to_string()));
+                let peer: Peer = get_peer(&hostname.to_string())?;
                 debug!("get_peer_by_ipaddr result: Peer: {:?}", peer);
                 let brick = Brick {
                     // Should this panic if it doesn't work?
-                    peer: peer,
+                    peer,
                     path: PathBuf::from(brick_parts[1].to_string()),
                 };
                 bricks.push(brick);
@@ -640,14 +642,14 @@ fn parse_volume_info(volume: &str, output_str: String) -> Result<Volume, Gluster
     let vol_type = VolumeType::new(&volume_type);
     let vol_info = Volume {
         name: volume_name,
-        vol_type: vol_type,
-        id: id,
-        status: status,
-        transport: transport,
-        bricks: bricks,
+        vol_type,
+        id,
+        status,
+        transport,
+        bricks,
         options: volume_options,
     };
-    return Ok(vol_info);
+    Ok(vol_info)
 }
 
 /// Returns a Volume with all available information on the volume
@@ -672,9 +674,9 @@ pub fn volume_info(volume: &str) -> Result<Volume, GlusterError> {
         // The client is using this to figure out if it should make a volume
         return Err(GlusterError::NoVolumesPresent);
     }
-    let output_str: String = try!(String::from_utf8(output.stdout));
+    let output_str: String = String::from_utf8(output.stdout)?;
 
-    return parse_volume_info(&volume, output_str);
+    parse_volume_info(&volume, &output_str)
 }
 
 /// Returns a u64 representing the bytes used on the volume.
@@ -694,7 +696,7 @@ pub fn get_quota_usage(volume: &str) -> Result<u64, GlusterError> {
         flavor: rpc::AuthFlavor::AuthNull,
         stuff: vec![0, 0, 0, 0],
     };
-    let verf_bytes = try!(verf.pack());
+    let verf_bytes = verf.pack()?;
 
     let creds = rpc::GlusterCred {
         flavor: rpc::GLUSTER_V2_CRED_FLAVOR,
@@ -704,16 +706,16 @@ pub fn get_quota_usage(volume: &str) -> Result<u64, GlusterError> {
         groups: "".to_string(),
         lock_owner: vec![0, 0, 0, 0],
     };
-    let cred_bytes = try!(creds.pack());
+    let cred_bytes = creds.pack()?;
 
-    let mut call_bytes = try!(rpc::pack_quota_callheader(
+    let mut call_bytes = rpc::pack_quota_callheader(
         xid,
         prog,
         vers,
         rpc::GlusterAggregatorCommand::GlusterAggregatorGetlimit,
         cred_bytes,
         verf_bytes,
-    ));
+    )?;
 
     let mut dict: HashMap<String, Vec<u8>> = HashMap::with_capacity(4);
 
@@ -735,27 +737,27 @@ pub fn get_quota_usage(volume: &str) -> Result<u64, GlusterError> {
     dict.insert("type".to_string(), vol_type);
     dict.insert("volume-uuid".to_string(), name);
     dict.insert("version".to_string(), version);
-    let quota_request = rpc::GlusterCliRequest { dict: dict };
-    let quota_bytes = try!(quota_request.pack());
+    let quota_request = rpc::GlusterCliRequest { dict };
+    let quota_bytes = quota_request.pack()?;
     for byte in quota_bytes {
         call_bytes.push(byte);
     }
 
     // Ok.. we need to hunt down the quota socket file ..crap..
     let addr = Path::new("/var/run/gluster/quotad.socket");
-    let mut sock = try!(UnixStream::connect(&addr));
+    let mut sock = UnixStream::connect(&addr)?;
 
-    let send_bytes = try!(rpc::sendrecord(&mut sock, &call_bytes));
-    let mut reply_bytes = try!(rpc::recvrecord(&mut sock));
+    let _send_bytes = rpc::sendrecord(&mut sock, &call_bytes)?;
+    let mut reply_bytes = rpc::recvrecord(&mut sock)?;
 
     let mut cursor = Cursor::new(&mut reply_bytes[..]);
 
     // Check for success
-    try!(rpc::unpack_replyheader(&mut cursor));
+    rpc::unpack_replyheader(&mut cursor)?;
 
-    let mut cli_response = try!(rpc::GlusterCliResponse::unpack(&mut cursor));
+    let mut cli_response = rpc::GlusterCliResponse::unpack(&mut cursor)?;
     // The raw bytes
-    let mut quota_size_bytes = match cli_response.dict.get_mut("trusted.glusterfs.quota.size") {
+    let quota_size_bytes = match cli_response.dict.get_mut("trusted.glusterfs.quota.size") {
         Some(s) => s,
         None => {
             return Err(GlusterError::new(
@@ -771,8 +773,8 @@ pub fn get_quota_usage(volume: &str) -> Result<u64, GlusterError> {
     // struct and
     // XDR is beyond me
     let mut size_cursor = Cursor::new(&mut quota_size_bytes[..]);
-    let usage = try!(size_cursor.read_u64::<BigEndian>());
-    return Ok(usage);
+    let usage = size_cursor.read_u64::<BigEndian>()?;
+    Ok(usage)
 }
 
 /// Return a list of quotas on the volume if any
@@ -797,8 +799,8 @@ pub fn quota_list(volume: &str) -> Result<Vec<Quota>, GlusterError> {
             String::from_utf8_lossy(&output.stderr).into_owned(),
         ));
     }
-    let output_str: String = try!(String::from_utf8(output.stdout));
-    let quota_list = parse_quota_list(volume, output_str);
+    let output_str: String = String::from_utf8(output.stdout)?;
+    let quota_list = parse_quota_list(volume, &output_str);
 
     Ok(quota_list)
 }
@@ -810,7 +812,7 @@ fn test_quota_list() {
 ----------------------------------------------------------------------------------------------
 / 1.0KB  80%(819Bytes)   0Bytes   1.0KB              No                   No
 "#;
-    let result = parse_quota_list("test", test_data.to_string());
+    let result = parse_quota_list("test", test_data);
     let quotas = vec![Quota {
         path: PathBuf::from("/"),
         limit: 1024,
@@ -834,7 +836,7 @@ fn test_quota_list() {
 // in certain situations.
 // 2. Issue an RPC directly to Gluster
 //
-fn parse_quota_list(volume: &str, output_str: String) -> Vec<Quota> {
+fn parse_quota_list(volume: &str, output_str: &str) -> Vec<Quota> {
     // ThinkPad-T410s:~# gluster vol quota test list
     // Path                   Hard-limit Soft-limit   Used  Available  Soft-limit
     // exceeded? Hard-limit exceeded?
@@ -870,16 +872,14 @@ fn parse_quota_list(volume: &str, output_str: String) -> Vec<Quota> {
             // Skip the first blank line in the output
             continue;
         }
-        if line.starts_with(" ") {
+        if line.starts_with(' ') {
             continue;
         }
-        if line.starts_with("-") {
+        if line.starts_with('-') {
             continue;
         }
         // Ok now that we've eliminated the garbage
-        let parts: Vec<&str> = line.split(" ")
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<&str>>();
+        let parts: Vec<&str> = line.split_whitespace().collect::<Vec<&str>>();
         // Output should match: ["/", "100.0MB", "80%", "0Bytes", "100.0MB", "No", "No"]
         if parts.len() > 3 {
             let limit: f64 = match translate_to_bytes(parts[1]) {
@@ -899,7 +899,7 @@ fn parse_quota_list(volume: &str, output_str: String) -> Vec<Quota> {
         }
         // else?
     }
-    return quota_list;
+    quota_list
 }
 
 /// Enable bitrot detection and remediation on the volume
@@ -907,7 +907,7 @@ fn parse_quota_list(volume: &str, output_str: String) -> Vec<Quota> {
 /// Will return GlusterError if the command fails to run
 pub fn volume_enable_bitrot(volume: &str) -> Result<i32, GlusterError> {
     let arg_list: Vec<&str> = vec!["volume", "bitrot", volume, "enable"];
-    return process_output(run_command("gluster", &arg_list, true, false));
+    process_output(run_command("gluster", &arg_list, true, false))
 }
 
 /// Disable bitrot detection and remediation on the volume
@@ -915,13 +915,13 @@ pub fn volume_enable_bitrot(volume: &str) -> Result<i32, GlusterError> {
 /// Will return GlusterError if the command fails to run
 pub fn volume_disable_bitrot(volume: &str) -> Result<i32, GlusterError> {
     let arg_list: Vec<&str> = vec!["volume", "bitrot", volume, "disable"];
-    return process_output(run_command("gluster", &arg_list, true, false));
+    process_output(run_command("gluster", &arg_list, true, false))
 }
 
 /// Set a bitrot option on the volume
 /// # Failures
 /// Will return GlusterError if the command fails to run
-pub fn volume_set_bitrot_option(volume: &str, setting: BitrotOption) -> Result<i32, GlusterError> {
+pub fn volume_set_bitrot_option(volume: &str, setting: &BitrotOption) -> Result<i32, GlusterError> {
     let arg_list: Vec<String> = vec![
         "volume".to_string(),
         "bitrot".to_string(),
@@ -929,7 +929,7 @@ pub fn volume_set_bitrot_option(volume: &str, setting: BitrotOption) -> Result<i
         setting.to_string(),
         setting.value(),
     ];
-    return process_output(run_command("gluster", &arg_list, true, true));
+    process_output(run_command("gluster", &arg_list, true, true))
 }
 
 /// Enable quotas on the volume
@@ -937,24 +937,24 @@ pub fn volume_set_bitrot_option(volume: &str, setting: BitrotOption) -> Result<i
 /// Will return GlusterError if the command fails to run
 pub fn volume_enable_quotas(volume: &str) -> Result<i32, GlusterError> {
     let arg_list: Vec<&str> = vec!["volume", "quota", volume, "enable"];
-    return process_output(run_command("gluster", &arg_list, true, false));
+    process_output(run_command("gluster", &arg_list, true, false))
 }
 
 /// Check if quotas are already enabled on a volume
 /// # Failures
 /// Will return GlusterError if the command fails to run
 pub fn volume_quotas_enabled(volume: &str) -> Result<bool, GlusterError> {
-    let vol_info = try!(volume_info(volume));
+    let vol_info = volume_info(volume)?;
     let quota = vol_info.options.get("features.quota");
     match quota {
         Some(v) => {
             if v == "off" {
-                return Ok(false);
+                Ok(false)
             } else if v == "on" {
-                return Ok(true);
+                Ok(true)
             } else {
                 // No idea what this is
-                return Ok(false);
+                Ok(false)
             }
         }
         None => Ok(false),
@@ -966,7 +966,7 @@ pub fn volume_quotas_enabled(volume: &str) -> Result<bool, GlusterError> {
 /// Will return GlusterError if the command fails to run
 pub fn volume_disable_quotas(volume: &str) -> Result<i32, GlusterError> {
     let arg_list: Vec<&str> = vec!["volume", "quota", volume, "disable"];
-    return process_output(run_command("gluster", &arg_list, true, false));
+    process_output(run_command("gluster", &arg_list, true, false))
 }
 
 /// Removes a size quota to the volume and path.
@@ -975,7 +975,7 @@ pub fn volume_disable_quotas(volume: &str) -> Result<i32, GlusterError> {
 pub fn volume_remove_quota(volume: &str, path: &Path) -> Result<i32, GlusterError> {
     let path_str = format!("{}", path.display());
     let arg_list: Vec<&str> = vec!["volume", "quota", volume, "remove", &path_str];
-    return process_output(run_command("gluster", &arg_list, true, false));
+    process_output(run_command("gluster", &arg_list, true, false))
 }
 
 /// Adds a size quota to the volume and path.
@@ -993,7 +993,7 @@ pub fn volume_add_quota(volume: &str, path: &Path, size: u64) -> Result<i32, Glu
         &size_string,
     ];
 
-    return process_output(run_command("gluster", &arg_list, true, false));
+    process_output(run_command("gluster", &arg_list, true, false))
 }
 #[test]
 fn test_parse_volume_status() {
@@ -1011,7 +1011,7 @@ fn test_parse_volume_status() {
     There are no active volume tasks
 
 "#;
-    let result = parse_volume_status(test_data.to_string()).unwrap();
+    let result = parse_volume_status(test_data).unwrap();
     println!("status: {:?}", result);
     // Have to inspect these manually because the UUID is randomly generated by the parser.
     // It's either that or it has to be set to some fixed UUID.  Neither solution seems good
@@ -1032,22 +1032,22 @@ fn test_parse_volume_status() {
 /// volume this will return
 /// True or False as to whether you can remove a Brick. This should be called
 /// before volume_remove_brick()
-pub fn ok_to_remove(volume: &str, brick: &Brick) -> Result<bool, GlusterError> {
+pub fn ok_to_remove(volume: &str, _brick: &Brick) -> Result<bool, GlusterError> {
     // TODO: switch over to native RPC call to eliminate String regex parsing
     let arg_list: Vec<&str> = vec!["vol", "status", volume];
 
     let output = run_command("gluster", &arg_list, true, false);
     if !output.status.success() {
-        let stderr = try!(String::from_utf8(output.stderr));
+        let stderr = String::from_utf8(output.stderr)?;
         return Err(GlusterError::new(stderr));
     }
 
-    let output_str = try!(String::from_utf8(output.stdout));
-    let bricks = try!(parse_volume_status(output_str));
+    let output_str = String::from_utf8(output.stdout)?;
+    let _bricks = parse_volume_status(&output_str)?;
     // The redudancy requirement is needed here.  The code needs to understand what
     // volume type
     // it's operating on.
-    return Ok(true);
+    Ok(true)
 }
 
 // pub fn volume_shrink_replicated(volume: &str,
@@ -1059,7 +1059,7 @@ pub fn ok_to_remove(volume: &str, brick: &Brick) -> Result<bool, GlusterError> {
 // ommit|force> - remove brick from volume <VOLNAME>
 // }
 //
-fn parse_volume_status(output_str: String) -> Result<Vec<BrickStatus>, GlusterError> {
+fn parse_volume_status(output_str: &str) -> Result<Vec<BrickStatus>, GlusterError> {
     // Sample output
     // Status of volume: test
     // Gluster process                             TCP Port  RDMA Port  Online  Pid
@@ -1078,56 +1078,53 @@ fn parse_volume_status(output_str: String) -> Result<Vec<BrickStatus>, GlusterEr
         if line.starts_with("Gluster") {
             continue;
         }
-        if line.starts_with("-") {
+        if line.starts_with('-') {
             continue;
         }
         let regex_str = r#"Brick\s+(?P<hostname>[a-zA-Z0-9.]+)
 :(?P<path>[/a-zA-z0-9]+)
 \s+(?P<tcp>[0-9]+)\s+(?P<rdma>[0-9]+)\s+(?P<online>[Y,N])\s+(?P<pid>[0-9]+)"#;
-        let brick_regex = try!(Regex::new(&regex_str.replace("\n", "")));
-        match brick_regex.captures(&line) {
-            Some(result) => {
-                let tcp_port = match result.name("tcp") {
-                    Some(port) => port,
-                    None => {
-                        return Err(GlusterError::new(
-                            "Unable to find tcp port in gluster vol \
-                             status output"
-                                .to_string(),
-                        ));
-                    }
-                };
+        let brick_regex = Regex::new(&regex_str.replace("\n", ""))?;
+        if let Some(result) = brick_regex.captures(&line) {
+            let _tcp_port = match result.name("tcp") {
+                Some(port) => port,
+                None => {
+                    return Err(GlusterError::new(
+                        "Unable to find tcp port in gluster vol \
+                         status output"
+                            .to_string(),
+                    ));
+                }
+            };
 
-                let peer = Peer {
-                    uuid: Uuid::new_v4(),
-                    hostname: result.name("hostname").unwrap().as_str().to_string(),
-                    status: State::Unknown,
-                };
+            let peer = Peer {
+                uuid: Uuid::new_v4(),
+                hostname: result.name("hostname").unwrap().as_str().to_string(),
+                status: State::Unknown,
+            };
 
-                let brick = Brick {
-                    peer: peer,
-                    path: PathBuf::from(result.name("path").unwrap().as_str()),
-                };
+            let brick = Brick {
+                peer,
+                path: PathBuf::from(result.name("path").unwrap().as_str()),
+            };
 
-                let online = match result.name("online").unwrap().as_str() {
-                    "Y" => true,
-                    "N" => false,
-                    _ => false,
-                };
+            let online = match result.name("online").unwrap().as_str() {
+                "Y" => true,
+                "N" => false,
+                _ => false,
+            };
 
-                let status = BrickStatus {
-                    brick: brick,
-                    tcp_port: try!(u16::from_str(result.name("tcp").unwrap().as_str())),
-                    rdma_port: try!(u16::from_str(result.name("rdma").unwrap().as_str())),
-                    online: online,
-                    pid: try!(u16::from_str(result.name("pid").unwrap().as_str())),
-                };
-                bricks.push(status);
-            }
-            None => {}
+            let status = BrickStatus {
+                brick,
+                tcp_port: u16::from_str(result.name("tcp").unwrap().as_str())?,
+                rdma_port: u16::from_str(result.name("rdma").unwrap().as_str())?,
+                online,
+                pid: u16::from_str(result.name("pid").unwrap().as_str())?,
+            };
+            bricks.push(status);
         }
     }
-    return Ok(bricks);
+    Ok(bricks)
 }
 
 /// Query the status of the volume given.
@@ -1138,12 +1135,12 @@ pub fn volume_status(volume: &str) -> Result<Vec<BrickStatus>, GlusterError> {
 
     let output = run_command("gluster", &arg_list, true, false);
     if !output.status.success() {
-        let stderr = try!(String::from_utf8(output.stderr));
+        let stderr = String::from_utf8(output.stderr)?;
         return Err(GlusterError::new(stderr));
     }
 
-    let output_str = try!(String::from_utf8(output.stdout));
-    let bricks = try!(parse_volume_status(output_str));
+    let output_str = String::from_utf8(output.stdout)?;
+    let bricks = parse_volume_status(&output_str)?;
 
     Ok(bricks)
 }
@@ -1172,7 +1169,7 @@ pub fn volume_remove_brick(
     }
 
     for brick in bricks {
-        let ok = try!(ok_to_remove(&volume, &brick));
+        let ok = ok_to_remove(&volume, &brick)?;
         if ok {
             let mut arg_list: Vec<&str> = vec!["volume", "remove-brick", volume];
 
@@ -1181,14 +1178,14 @@ pub fn volume_remove_brick(
             }
             arg_list.push("start");
 
-            let status = process_output(run_command("gluster", &arg_list, true, true));
+            let _status = process_output(run_command("gluster", &arg_list, true, true));
         } else {
             return Err(GlusterError::new(
                 "Unable to remove brick due to redundancy failure".to_string(),
             ));
         }
     }
-    return Ok(0);
+    Ok(0)
 }
 
 // volume add-brick <VOLNAME> [<stripe|replica> <COUNT>]
@@ -1196,11 +1193,7 @@ pub fn volume_remove_brick(
 /// This adds a new brick to the volume
 /// # Failures
 /// Will return GlusterError if the command fails to run
-pub fn volume_add_brick(
-    volume: &str,
-    bricks: Vec<Brick>,
-    force: bool,
-) -> Result<i32, GlusterError> {
+pub fn volume_add_brick(volume: &str, bricks: &[Brick], force: bool) -> Result<i32, GlusterError> {
     if bricks.is_empty() {
         return Err(GlusterError::new(
             "The brick list is empty. Not expanding volume".to_string(),
@@ -1218,7 +1211,7 @@ pub fn volume_add_brick(
     if force {
         arg_list.push("force".to_string());
     }
-    return process_output(run_command("gluster", &arg_list, true, true));
+    process_output(run_command("gluster", &arg_list, true, true))
 }
 
 /// Once a volume is created it needs to be started.  This starts the volume
@@ -1231,7 +1224,7 @@ pub fn volume_start(volume: &str, force: bool) -> Result<i32, GlusterError> {
     if force {
         arg_list.push("force");
     }
-    return process_output(run_command("gluster", &arg_list, true, true));
+    process_output(run_command("gluster", &arg_list, true, true))
 }
 
 /// This stops a running volume
@@ -1243,7 +1236,7 @@ pub fn volume_stop(volume: &str, force: bool) -> Result<i32, GlusterError> {
     if force {
         arg_list.push("force");
     }
-    return process_output(run_command("gluster", &arg_list, true, true));
+    process_output(run_command("gluster", &arg_list, true, true))
 }
 
 /// This deletes a stopped volume
@@ -1252,23 +1245,23 @@ pub fn volume_stop(volume: &str, force: bool) -> Result<i32, GlusterError> {
 pub fn volume_delete(volume: &str) -> Result<i32, GlusterError> {
     let arg_list: Vec<&str> = vec!["volume", "delete", volume];
 
-    return process_output(run_command("gluster", &arg_list, true, true));
+    process_output(run_command("gluster", &arg_list, true, true))
 }
 
 /// This function doesn't do anything yet.  It is a place holder because
 /// volume_rebalance
 /// is a long running command and I haven't decided how to poll for completion
 /// yet
-pub fn volume_rebalance(volume: &str) {
+pub fn volume_rebalance(_volume: &str) {
     // Usage: volume rebalance <VOLNAME> {{fix-layout start} | {start
     // [force]|stop|status}}
 }
 
 fn volume_create<T: ToString>(
     volume: &str,
-    options: HashMap<VolumeTranslator, T>,
+    options: &HashMap<VolumeTranslator, T>,
     transport: &Transport,
-    bricks: Vec<Brick>,
+    bricks: &[Brick],
     force: bool,
 ) -> Result<i32, GlusterError> {
     if bricks.is_empty() {
@@ -1303,7 +1296,7 @@ fn volume_create<T: ToString>(
     if force {
         arg_list.push("force".to_string());
     }
-    return process_output(run_command("gluster", &arg_list, true, true));
+    process_output(run_command("gluster", &arg_list, true, true))
 }
 
 fn vol_set(volume: &str, option: &GlusterOption) -> Result<i32, GlusterError> {
@@ -1315,13 +1308,13 @@ fn vol_set(volume: &str, option: &GlusterOption) -> Result<i32, GlusterError> {
     arg_list.push(option.to_string());
     arg_list.push(option.value());
 
-    return process_output(run_command("gluster", &arg_list, true, true));
+    process_output(run_command("gluster", &arg_list, true, true))
 }
 
 /// Set an option on the volume
 /// # Failures
 /// Will return GlusterError if the command fails to run
-pub fn volume_set_options(volume: &str, settings: Vec<GlusterOption>) -> Result<i32, GlusterError> {
+pub fn volume_set_options(volume: &str, settings: &[GlusterOption]) -> Result<i32, GlusterError> {
     let results: Vec<Result<i32, GlusterError>> = settings
         .iter()
         .map(|gluster_opt| vol_set(volume, gluster_opt))
@@ -1334,11 +1327,11 @@ pub fn volume_set_options(volume: &str, settings: Vec<GlusterOption>) -> Result<
             Err(e) => error_list.push(e.to_string()),
         }
     }
-    if error_list.len() > 0 {
+    if !error_list.is_empty() {
         return Err(GlusterError::new(error_list.join("\n")));
     }
 
-    return Ok(0);
+    Ok(0)
 }
 
 /// This creates a new replicated volume
@@ -1347,14 +1340,14 @@ pub fn volume_set_options(volume: &str, settings: Vec<GlusterOption>) -> Result<
 pub fn volume_create_replicated(
     volume: &str,
     replica_count: usize,
-    transport: Transport,
-    bricks: Vec<Brick>,
+    transport: &Transport,
+    bricks: &[Brick],
     force: bool,
 ) -> Result<i32, GlusterError> {
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Replica, replica_count);
 
-    return volume_create(volume, volume_translators, &transport, bricks, force);
+    volume_create(volume, &volume_translators, &transport, &bricks, force)
 }
 
 /// The arbiter volume is special subset of replica volumes that is aimed at preventing
@@ -1366,15 +1359,15 @@ pub fn volume_create_arbiter(
     volume: &str,
     replica_count: usize,
     arbiter_count: usize,
-    transport: Transport,
-    bricks: Vec<Brick>,
+    transport: &Transport,
+    bricks: &[Brick],
     force: bool,
 ) -> Result<i32, GlusterError> {
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Replica, replica_count);
     volume_translators.insert(VolumeTranslator::Arbiter, arbiter_count);
 
-    return volume_create(volume, volume_translators, &transport, bricks, force);
+    volume_create(volume, &volume_translators, &transport, &bricks, force)
 }
 
 /// This creates a new striped volume
@@ -1383,14 +1376,14 @@ pub fn volume_create_arbiter(
 pub fn volume_create_striped(
     volume: &str,
     stripe: usize,
-    transport: Transport,
-    bricks: Vec<Brick>,
+    transport: &Transport,
+    bricks: &[Brick],
     force: bool,
 ) -> Result<i32, GlusterError> {
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Stripe, stripe);
 
-    return volume_create(volume, volume_translators, &transport, bricks, force);
+    volume_create(volume, &volume_translators, &transport, &bricks, force)
 }
 
 /// This creates a new striped and replicated volume
@@ -1400,15 +1393,15 @@ pub fn volume_create_striped_replicated(
     volume: &str,
     stripe: usize,
     replica: usize,
-    transport: Transport,
-    bricks: Vec<Brick>,
+    transport: &Transport,
+    bricks: &[Brick],
     force: bool,
 ) -> Result<i32, GlusterError> {
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Stripe, stripe);
     volume_translators.insert(VolumeTranslator::Replica, replica);
 
-    return volume_create(volume, volume_translators, &transport, bricks, force);
+    volume_create(volume, &volume_translators, &transport, &bricks, force)
 }
 
 /// This creates a new distributed volume
@@ -1416,13 +1409,13 @@ pub fn volume_create_striped_replicated(
 /// Will return GlusterError if the command fails to run
 pub fn volume_create_distributed(
     volume: &str,
-    transport: Transport,
-    bricks: Vec<Brick>,
+    transport: &Transport,
+    bricks: &[Brick],
     force: bool,
 ) -> Result<i32, GlusterError> {
     let volume_translators: HashMap<VolumeTranslator, String> = HashMap::new();
 
-    return volume_create(volume, volume_translators, &transport, bricks, force);
+    volume_create(volume, &volume_translators, &transport, &bricks, force)
 }
 
 /// This creates a new erasure coded volume
@@ -1432,13 +1425,13 @@ pub fn volume_create_erasure(
     volume: &str,
     disperse: usize,
     redundancy: usize,
-    transport: Transport,
-    bricks: Vec<Brick>,
+    transport: &Transport,
+    bricks: &[Brick],
     force: bool,
 ) -> Result<i32, GlusterError> {
     let mut volume_translators: HashMap<VolumeTranslator, usize> = HashMap::new();
     volume_translators.insert(VolumeTranslator::Disperse, disperse);
     volume_translators.insert(VolumeTranslator::Redundancy, redundancy);
 
-    return volume_create(volume, volume_translators, &transport, bricks, force);
+    volume_create(volume, &volume_translators, &transport, &bricks, force)
 }

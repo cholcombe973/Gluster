@@ -22,8 +22,6 @@ pub mod volume;
 
 extern crate byteorder;
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate log;
 extern crate regex;
 #[macro_use]
@@ -31,8 +29,6 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate unix_socket;
 extern crate uuid;
-
-use regex::Regex;
 
 use std::cmp::Ord;
 use std::cmp::Ordering;
@@ -62,10 +58,10 @@ pub enum SelfHealAlgorithm {
 
 impl SelfHealAlgorithm {
     fn to_string(&self) -> String {
-        match self {
-            &SelfHealAlgorithm::Full => "full".to_string(),
-            &SelfHealAlgorithm::Diff => "diff".to_string(),
-            &SelfHealAlgorithm::Reset => "reset".to_string(),
+        match *self {
+            SelfHealAlgorithm::Full => "full".to_string(),
+            SelfHealAlgorithm::Diff => "diff".to_string(),
+            SelfHealAlgorithm::Reset => "reset".to_string(),
         }
     }
     fn from_str(s: &str) -> SelfHealAlgorithm {
@@ -88,12 +84,12 @@ pub enum SplitBrainPolicy {
 
 impl SplitBrainPolicy {
     pub fn to_string(&self) -> String {
-        match self {
-            &SplitBrainPolicy::Ctime => "ctime".to_string(),
-            &SplitBrainPolicy::Disable => "none".to_string(),
-            &SplitBrainPolicy::Majority => "majority".to_string(),
-            &SplitBrainPolicy::Mtime => "mtime".to_string(),
-            &SplitBrainPolicy::Size => "size".to_string(),
+        match *self {
+            SplitBrainPolicy::Ctime => "ctime".to_string(),
+            SplitBrainPolicy::Disable => "none".to_string(),
+            SplitBrainPolicy::Majority => "majority".to_string(),
+            SplitBrainPolicy::Mtime => "mtime".to_string(),
+            SplitBrainPolicy::Size => "size".to_string(),
         }
     }
     pub fn from_str(s: &str) -> Result<SplitBrainPolicy, GlusterError> {
@@ -126,9 +122,9 @@ pub enum AccessMode {
 
 impl AccessMode {
     pub fn to_string(&self) -> String {
-        match self {
-            &AccessMode::ReadOnly => "read-only".to_string(),
-            &AccessMode::ReadWrite => "read-write".to_string(),
+        match *self {
+            AccessMode::ReadOnly => "read-only".to_string(),
+            AccessMode::ReadWrite => "read-write".to_string(),
         }
     }
     pub fn from_str(s: &str) -> AccessMode {
@@ -165,9 +161,9 @@ impl Into<bool> for Toggle {
 
 impl Toggle {
     pub fn to_string(&self) -> String {
-        match self {
-            &Toggle::On => "On".to_string(),
-            &Toggle::Off => "Off".to_string(),
+        match *self {
+            Toggle::On => "On".to_string(),
+            Toggle::Off => "Off".to_string(),
         }
     }
     pub fn from_str(s: &str) -> Toggle {
@@ -190,12 +186,12 @@ pub enum ScrubSchedule {
 }
 impl ScrubSchedule {
     pub fn to_string(&self) -> String {
-        match self {
-            &ScrubSchedule::Hourly => "hourly".to_string(),
-            &ScrubSchedule::Daily => "daily".to_string(),
-            &ScrubSchedule::Weekly => "weekly".to_string(),
-            &ScrubSchedule::BiWeekly => "biweekly".to_string(),
-            &ScrubSchedule::Monthly => "monthly".to_string(),
+        match *self {
+            ScrubSchedule::Hourly => "hourly".to_string(),
+            ScrubSchedule::Daily => "daily".to_string(),
+            ScrubSchedule::Weekly => "weekly".to_string(),
+            ScrubSchedule::BiWeekly => "biweekly".to_string(),
+            ScrubSchedule::Monthly => "monthly".to_string(),
         }
     }
     pub fn from_str(s: &str) -> ScrubSchedule {
@@ -216,10 +212,10 @@ pub enum ScrubAggression {
 }
 impl ScrubAggression {
     pub fn to_string(&self) -> String {
-        match self {
-            &ScrubAggression::Aggressive => "aggressive".to_string(),
-            &ScrubAggression::Lazy => "lazy".to_string(),
-            &ScrubAggression::Normal => "normal".to_string(),
+        match *self {
+            ScrubAggression::Aggressive => "aggressive".to_string(),
+            ScrubAggression::Lazy => "lazy".to_string(),
+            ScrubAggression::Normal => "normal".to_string(),
         }
     }
     pub fn from_str(s: &str) -> ScrubAggression {
@@ -241,11 +237,11 @@ pub enum ScrubControl {
 
 impl ScrubControl {
     fn to_string(&self) -> String {
-        match self {
-            &ScrubControl::Pause => "pause".to_string(),
-            &ScrubControl::Resume => "resume".to_string(),
-            &ScrubControl::Status => "status".to_string(),
-            &ScrubControl::OnDemand => "ondemand".to_string(),
+        match *self {
+            ScrubControl::Pause => "pause".to_string(),
+            ScrubControl::Resume => "resume".to_string(),
+            ScrubControl::Status => "status".to_string(),
+            ScrubControl::OnDemand => "ondemand".to_string(),
         }
     }
 }
@@ -271,17 +267,17 @@ pub enum BitrotOption {
 
 impl BitrotOption {
     fn to_string(&self) -> String {
-        match self {
-            &BitrotOption::ScrubThrottle(_) => "scrub-throttle".to_string(),
-            &BitrotOption::ScrubFrequency(_) => "scrub-frequency".to_string(),
-            &BitrotOption::Scrub(_) => "scrub".to_string(),
+        match *self {
+            BitrotOption::ScrubThrottle(_) => "scrub-throttle".to_string(),
+            BitrotOption::ScrubFrequency(_) => "scrub-frequency".to_string(),
+            BitrotOption::Scrub(_) => "scrub".to_string(),
         }
     }
     fn value(&self) -> String {
-        match self {
-            &BitrotOption::ScrubThrottle(ref val) => val.to_string(),
-            &BitrotOption::ScrubFrequency(ref val) => val.to_string(),
-            &BitrotOption::Scrub(ref val) => val.to_string(),
+        match *self {
+            BitrotOption::ScrubThrottle(ref val) => val.to_string(),
+            BitrotOption::ScrubFrequency(ref val) => val.to_string(),
+            BitrotOption::Scrub(ref val) => val.to_string(),
         }
     }
 }
@@ -446,373 +442,359 @@ pub enum GlusterOption {
 
 impl GlusterOption {
     fn to_string(&self) -> String {
-        match self {
-            &GlusterOption::AuthAllow(_) => "auth.allow".to_string(),
-            &GlusterOption::AuthReject(_) => "auth.reject".to_string(),
-            &GlusterOption::ClientGraceTimeout(_) => "client.grace-timeout".to_string(),
-            &GlusterOption::ClientSsl(_) => "client.ssl".to_string(),
-            &GlusterOption::ClusterSelfHealWindowSize(_) => {
+        match *self {
+            GlusterOption::AuthAllow(_) => "auth.allow".to_string(),
+            GlusterOption::AuthReject(_) => "auth.reject".to_string(),
+            GlusterOption::ClientGraceTimeout(_) => "client.grace-timeout".to_string(),
+            GlusterOption::ClientSsl(_) => "client.ssl".to_string(),
+            GlusterOption::ClusterSelfHealWindowSize(_) => {
                 "cluster.self-heal-window-size".to_string()
             }
-            &GlusterOption::ClusterDataSelfHealAlgorithm(_) => {
+            GlusterOption::ClusterDataSelfHealAlgorithm(_) => {
                 "cluster.data-self-heal-algorithm".to_string()
             }
-            &GlusterOption::ClusterMinFreeDisk(_) => "cluster.min-free-disk".to_string(),
-            &GlusterOption::ClusterStripeBlockSize(_) => "cluster.stripe-block-size".to_string(),
-            &GlusterOption::ClusterSelfHealDaemon(_) => "cluster.self-heal-daemon".to_string(),
-            &GlusterOption::ClusterEnsureDurability(_) => "cluster.ensure-durability".to_string(),
-            &GlusterOption::DiagnosticsBrickLevel(_) => "diagnostics.brick-log-level".to_string(),
-            &GlusterOption::DiagnosticsClientLevel(_) => "diagnostics.client-log-level".to_string(),
-            &GlusterOption::DiagnosticsLatencyMeasurement(_) => {
+            GlusterOption::ClusterMinFreeDisk(_) => "cluster.min-free-disk".to_string(),
+            GlusterOption::ClusterStripeBlockSize(_) => "cluster.stripe-block-size".to_string(),
+            GlusterOption::ClusterSelfHealDaemon(_) => "cluster.self-heal-daemon".to_string(),
+            GlusterOption::ClusterEnsureDurability(_) => "cluster.ensure-durability".to_string(),
+            GlusterOption::DiagnosticsBrickLevel(_) => "diagnostics.brick-log-level".to_string(),
+            GlusterOption::DiagnosticsClientLevel(_) => "diagnostics.client-log-level".to_string(),
+            GlusterOption::DiagnosticsLatencyMeasurement(_) => {
                 "diagnostics.latency-measurement".to_string()
             }
-            &GlusterOption::DiagnosticsCountFopHits(_) => "diagnostics.count-fop-hits".to_string(),
-            &GlusterOption::DiagnosticsDumpFdStats(_) => "diagnostics.dump-fd-stats".to_string(),
-            &GlusterOption::DiagnosticsFopSampleBufSize(_) => {
+            GlusterOption::DiagnosticsCountFopHits(_) => "diagnostics.count-fop-hits".to_string(),
+            GlusterOption::DiagnosticsDumpFdStats(_) => "diagnostics.dump-fd-stats".to_string(),
+            GlusterOption::DiagnosticsFopSampleBufSize(_) => {
                 "diagnostics.fop-sample-buf-size".to_string()
             }
-            &GlusterOption::DiagnosticsFopSampleInterval(_) => {
+            GlusterOption::DiagnosticsFopSampleInterval(_) => {
                 "diagnostics.fop-sample-interval".to_string()
             }
-            &GlusterOption::DiagnosticsStatsDnscacheTtlSec(_) => {
+            GlusterOption::DiagnosticsStatsDnscacheTtlSec(_) => {
                 "diagnostics.stats-dnscache-ttl-sec".to_string()
             }
-            &GlusterOption::DiagnosticsStatsDumpInterval(_) => {
+            GlusterOption::DiagnosticsStatsDumpInterval(_) => {
                 "diagnostics.stats-dump-interval".to_string()
             }
-            &GlusterOption::FavoriteChildPolicy(_) => "cluster.favorite-child-policy".to_string(),
-            &GlusterOption::FeaturesReadOnly(_) => "features.read-only".to_string(),
-            &GlusterOption::FeaturesLockHeal(_) => "features.lock-heal".to_string(),
-            &GlusterOption::FeaturesQuotaTimeout(_) => "features.quota-timeout".to_string(),
-            &GlusterOption::GeoReplicationIndexing(_) => "geo-replication.indexing".to_string(),
-            &GlusterOption::NetworkFrameTimeout(_) => "network.frame-timeout".to_string(),
-            &GlusterOption::NfsEnableIno32(_) => "nfs.enable-ino32".to_string(),
-            &GlusterOption::NfsVolumeAccess(_) => "nfs.volume-access".to_string(),
-            &GlusterOption::NfsTrustedWrite(_) => "nfs.trusted-write".to_string(),
-            &GlusterOption::NfsTrustedSync(_) => "nfs.trusted-sync".to_string(),
-            &GlusterOption::NfsExportDir(_) => "nfs.export-dir".to_string(),
-            &GlusterOption::NfsExportVolumes(_) => "nfs.export-volumes".to_string(),
-            &GlusterOption::NfsRpcAuthUnix(_) => "nfs.rpc-auth-unix".to_string(),
-            &GlusterOption::NfsRpcAuthNull(_) => "nfs.rpc-auth-null".to_string(),
-            &GlusterOption::NfsPortsInsecure(_) => "nfs.ports-insecure".to_string(),
-            &GlusterOption::NfsAddrNamelookup(_) => "nfs.addr-namelookup".to_string(),
-            &GlusterOption::NfsRegisterWithPortmap(_) => "nfs.register-with-portmap".to_string(),
-            &GlusterOption::NfsDisable(_) => "nfs.disable".to_string(),
-            &GlusterOption::PerformanceWriteBehindWindowSize(_) => {
+            GlusterOption::FavoriteChildPolicy(_) => "cluster.favorite-child-policy".to_string(),
+            GlusterOption::FeaturesReadOnly(_) => "features.read-only".to_string(),
+            GlusterOption::FeaturesLockHeal(_) => "features.lock-heal".to_string(),
+            GlusterOption::FeaturesQuotaTimeout(_) => "features.quota-timeout".to_string(),
+            GlusterOption::GeoReplicationIndexing(_) => "geo-replication.indexing".to_string(),
+            GlusterOption::NetworkFrameTimeout(_) => "network.frame-timeout".to_string(),
+            GlusterOption::NfsEnableIno32(_) => "nfs.enable-ino32".to_string(),
+            GlusterOption::NfsVolumeAccess(_) => "nfs.volume-access".to_string(),
+            GlusterOption::NfsTrustedWrite(_) => "nfs.trusted-write".to_string(),
+            GlusterOption::NfsTrustedSync(_) => "nfs.trusted-sync".to_string(),
+            GlusterOption::NfsExportDir(_) => "nfs.export-dir".to_string(),
+            GlusterOption::NfsExportVolumes(_) => "nfs.export-volumes".to_string(),
+            GlusterOption::NfsRpcAuthUnix(_) => "nfs.rpc-auth-unix".to_string(),
+            GlusterOption::NfsRpcAuthNull(_) => "nfs.rpc-auth-null".to_string(),
+            GlusterOption::NfsPortsInsecure(_) => "nfs.ports-insecure".to_string(),
+            GlusterOption::NfsAddrNamelookup(_) => "nfs.addr-namelookup".to_string(),
+            GlusterOption::NfsRegisterWithPortmap(_) => "nfs.register-with-portmap".to_string(),
+            GlusterOption::NfsDisable(_) => "nfs.disable".to_string(),
+            GlusterOption::PerformanceWriteBehindWindowSize(_) => {
                 "performance.write-behind-window-size".to_string()
             }
-            &GlusterOption::PerformanceIoThreadCount(_) => {
-                "performance.io-thread-count".to_string()
-            }
-            &GlusterOption::PerformanceFlushBehind(_) => "performance.flush-behind".to_string(),
-            &GlusterOption::PerformanceCacheMaxFileSize(_) => {
+            GlusterOption::PerformanceIoThreadCount(_) => "performance.io-thread-count".to_string(),
+            GlusterOption::PerformanceFlushBehind(_) => "performance.flush-behind".to_string(),
+            GlusterOption::PerformanceCacheMaxFileSize(_) => {
                 "performance.cache-max-file-size".to_string()
             }
-            &GlusterOption::PerformanceCacheMinFileSize(_) => {
+            GlusterOption::PerformanceCacheMinFileSize(_) => {
                 "performance.cache-min-file-size".to_string()
             }
-            &GlusterOption::PerformanceCacheRefreshTimeout(_) => {
+            GlusterOption::PerformanceCacheRefreshTimeout(_) => {
                 "performance.cache-refresh-timeout".to_string()
             }
-            &GlusterOption::PerformanceCacheSize(_) => "performance.cache-size".to_string(),
-            &GlusterOption::PerformanceReadDirAhead(_) => "performance.readdir-ahead".to_string(),
-            &GlusterOption::PerformanceParallelReadDir(_) => {
+            GlusterOption::PerformanceCacheSize(_) => "performance.cache-size".to_string(),
+            GlusterOption::PerformanceReadDirAhead(_) => "performance.readdir-ahead".to_string(),
+            GlusterOption::PerformanceParallelReadDir(_) => {
                 "performance.parallel-readdir".to_string()
             }
-            &GlusterOption::PerformanceReadDirAheadCacheLimit(_) => {
+            GlusterOption::PerformanceReadDirAheadCacheLimit(_) => {
                 "performance.rda-cache-limit".to_string()
             }
-            &GlusterOption::ServerAllowInsecure(_) => "server.allow-insecure".to_string(),
-            &GlusterOption::ServerGraceTimeout(_) => "server.grace-timeout".to_string(),
-            &GlusterOption::ServerSsl(_) => "server.ssl".to_string(),
-            &GlusterOption::ServerStatedumpPath(_) => "server.statedump-path".to_string(),
-            &GlusterOption::SslAllow(_) => "auth.ssl-allow".to_string(),
-            &GlusterOption::SslCertificateDepth(_) => "ssl.certificate-depth".to_string(),
-            &GlusterOption::SslCipherList(_) => "ssl.cipher-list".to_string(),
-            &GlusterOption::StorageHealthCheckInterval(_) => {
+            GlusterOption::ServerAllowInsecure(_) => "server.allow-insecure".to_string(),
+            GlusterOption::ServerGraceTimeout(_) => "server.grace-timeout".to_string(),
+            GlusterOption::ServerSsl(_) => "server.ssl".to_string(),
+            GlusterOption::ServerStatedumpPath(_) => "server.statedump-path".to_string(),
+            GlusterOption::SslAllow(_) => "auth.ssl-allow".to_string(),
+            GlusterOption::SslCertificateDepth(_) => "ssl.certificate-depth".to_string(),
+            GlusterOption::SslCipherList(_) => "ssl.cipher-list".to_string(),
+            GlusterOption::StorageHealthCheckInterval(_) => {
                 "storage.health-check-interval".to_string()
             }
         }
     }
     fn value(&self) -> String {
-        match self {
-            &GlusterOption::AuthAllow(ref val) => val.to_string(),
-            &GlusterOption::AuthReject(ref val) => val.to_string(),
-            &GlusterOption::ClientGraceTimeout(val) => val.to_string(),
-            &GlusterOption::ClientSsl(ref val) => val.to_string(),
-            &GlusterOption::ClusterSelfHealWindowSize(val) => val.to_string(),
-            &GlusterOption::ClusterDataSelfHealAlgorithm(ref val) => val.to_string(),
-            &GlusterOption::ClusterMinFreeDisk(val) => val.to_string(),
-            &GlusterOption::ClusterStripeBlockSize(val) => val.to_string(),
-            &GlusterOption::ClusterSelfHealDaemon(ref val) => val.to_string(),
-            &GlusterOption::ClusterEnsureDurability(ref val) => val.to_string(),
-            &GlusterOption::DiagnosticsBrickLevel(val) => val.to_string(),
-            &GlusterOption::DiagnosticsClientLevel(val) => val.to_string(),
-            &GlusterOption::DiagnosticsLatencyMeasurement(ref val) => val.to_string(),
-            &GlusterOption::DiagnosticsDumpFdStats(ref val) => val.to_string(),
-            &GlusterOption::DiagnosticsFopSampleInterval(ref val) => val.to_string(),
-            &GlusterOption::DiagnosticsFopSampleBufSize(ref val) => val.to_string(),
-            &GlusterOption::DiagnosticsCountFopHits(ref val) => val.to_string(),
-            &GlusterOption::DiagnosticsStatsDumpInterval(ref val) => val.to_string(),
-            &GlusterOption::DiagnosticsStatsDnscacheTtlSec(ref val) => val.to_string(),
-            &GlusterOption::FavoriteChildPolicy(ref val) => val.to_string(),
-            &GlusterOption::FeaturesReadOnly(ref val) => val.to_string(),
-            &GlusterOption::FeaturesLockHeal(ref val) => val.to_string(),
-            &GlusterOption::FeaturesQuotaTimeout(val) => val.to_string(),
-            &GlusterOption::GeoReplicationIndexing(ref val) => val.to_string(),
-            &GlusterOption::NetworkFrameTimeout(val) => val.to_string(),
-            &GlusterOption::NfsEnableIno32(ref val) => val.to_string(),
-            &GlusterOption::NfsVolumeAccess(ref val) => val.to_string(),
-            &GlusterOption::NfsTrustedWrite(ref val) => val.to_string(),
-            &GlusterOption::NfsTrustedSync(ref val) => val.to_string(),
-            &GlusterOption::NfsExportDir(ref val) => val.to_string(),
-            &GlusterOption::NfsExportVolumes(ref val) => val.to_string(),
-            &GlusterOption::NfsRpcAuthUnix(ref val) => val.to_string(),
-            &GlusterOption::NfsRpcAuthNull(ref val) => val.to_string(),
-            &GlusterOption::NfsPortsInsecure(ref val) => val.to_string(),
-            &GlusterOption::NfsAddrNamelookup(ref val) => val.to_string(),
-            &GlusterOption::NfsRegisterWithPortmap(ref val) => val.to_string(),
-            &GlusterOption::NfsDisable(ref val) => val.to_string(),
-            &GlusterOption::PerformanceWriteBehindWindowSize(val) => val.to_string(),
-            &GlusterOption::PerformanceIoThreadCount(val) => val.to_string(),
-            &GlusterOption::PerformanceFlushBehind(ref val) => val.to_string(),
-            &GlusterOption::PerformanceCacheMaxFileSize(val) => val.to_string(),
-            &GlusterOption::PerformanceCacheMinFileSize(val) => val.to_string(),
-            &GlusterOption::PerformanceCacheRefreshTimeout(val) => val.to_string(),
-            &GlusterOption::PerformanceCacheSize(val) => val.to_string(),
-            &GlusterOption::PerformanceReadDirAhead(ref val) => val.to_string(),
-            &GlusterOption::PerformanceParallelReadDir(ref val) => val.to_string(),
-            &GlusterOption::PerformanceReadDirAheadCacheLimit(val) => val.to_string(),
-            &GlusterOption::ServerAllowInsecure(ref val) => val.to_string(),
-            &GlusterOption::ServerGraceTimeout(val) => val.to_string(),
-            &GlusterOption::ServerSsl(ref val) => val.to_string(),
-            &GlusterOption::SslAllow(ref val) => val.to_string(),
-            &GlusterOption::SslCertificateDepth(val) => val.to_string(),
-            &GlusterOption::SslCipherList(ref val) => val.to_string(),
-            &GlusterOption::ServerStatedumpPath(ref val) => val.to_string_lossy().into_owned(),
-            &GlusterOption::StorageHealthCheckInterval(val) => val.to_string(),
+        match *self {
+            GlusterOption::AuthAllow(ref val) => val.to_string(),
+            GlusterOption::AuthReject(ref val) => val.to_string(),
+            GlusterOption::ClientGraceTimeout(val) => val.to_string(),
+            GlusterOption::ClientSsl(ref val) => val.to_string(),
+            GlusterOption::ClusterSelfHealWindowSize(val) => val.to_string(),
+            GlusterOption::ClusterDataSelfHealAlgorithm(ref val) => val.to_string(),
+            GlusterOption::ClusterMinFreeDisk(val) => val.to_string(),
+            GlusterOption::ClusterStripeBlockSize(val) => val.to_string(),
+            GlusterOption::ClusterSelfHealDaemon(ref val) => val.to_string(),
+            GlusterOption::ClusterEnsureDurability(ref val) => val.to_string(),
+            GlusterOption::DiagnosticsBrickLevel(val) => val.to_string(),
+            GlusterOption::DiagnosticsClientLevel(val) => val.to_string(),
+            GlusterOption::DiagnosticsLatencyMeasurement(ref val) => val.to_string(),
+            GlusterOption::DiagnosticsDumpFdStats(ref val) => val.to_string(),
+            GlusterOption::DiagnosticsFopSampleInterval(ref val) => val.to_string(),
+            GlusterOption::DiagnosticsFopSampleBufSize(ref val) => val.to_string(),
+            GlusterOption::DiagnosticsCountFopHits(ref val) => val.to_string(),
+            GlusterOption::DiagnosticsStatsDumpInterval(ref val) => val.to_string(),
+            GlusterOption::DiagnosticsStatsDnscacheTtlSec(ref val) => val.to_string(),
+            GlusterOption::FavoriteChildPolicy(ref val) => val.to_string(),
+            GlusterOption::FeaturesReadOnly(ref val) => val.to_string(),
+            GlusterOption::FeaturesLockHeal(ref val) => val.to_string(),
+            GlusterOption::FeaturesQuotaTimeout(val) => val.to_string(),
+            GlusterOption::GeoReplicationIndexing(ref val) => val.to_string(),
+            GlusterOption::NetworkFrameTimeout(val) => val.to_string(),
+            GlusterOption::NfsEnableIno32(ref val) => val.to_string(),
+            GlusterOption::NfsVolumeAccess(ref val) => val.to_string(),
+            GlusterOption::NfsTrustedWrite(ref val) => val.to_string(),
+            GlusterOption::NfsTrustedSync(ref val) => val.to_string(),
+            GlusterOption::NfsExportDir(ref val) => val.to_string(),
+            GlusterOption::NfsExportVolumes(ref val) => val.to_string(),
+            GlusterOption::NfsRpcAuthUnix(ref val) => val.to_string(),
+            GlusterOption::NfsRpcAuthNull(ref val) => val.to_string(),
+            GlusterOption::NfsPortsInsecure(ref val) => val.to_string(),
+            GlusterOption::NfsAddrNamelookup(ref val) => val.to_string(),
+            GlusterOption::NfsRegisterWithPortmap(ref val) => val.to_string(),
+            GlusterOption::NfsDisable(ref val) => val.to_string(),
+            GlusterOption::PerformanceWriteBehindWindowSize(val) => val.to_string(),
+            GlusterOption::PerformanceIoThreadCount(val) => val.to_string(),
+            GlusterOption::PerformanceFlushBehind(ref val) => val.to_string(),
+            GlusterOption::PerformanceCacheMaxFileSize(val) => val.to_string(),
+            GlusterOption::PerformanceCacheMinFileSize(val) => val.to_string(),
+            GlusterOption::PerformanceCacheRefreshTimeout(val) => val.to_string(),
+            GlusterOption::PerformanceCacheSize(val) => val.to_string(),
+            GlusterOption::PerformanceReadDirAhead(ref val) => val.to_string(),
+            GlusterOption::PerformanceParallelReadDir(ref val) => val.to_string(),
+            GlusterOption::PerformanceReadDirAheadCacheLimit(val) => val.to_string(),
+            GlusterOption::ServerAllowInsecure(ref val) => val.to_string(),
+            GlusterOption::ServerGraceTimeout(val) => val.to_string(),
+            GlusterOption::ServerSsl(ref val) => val.to_string(),
+            GlusterOption::SslAllow(ref val) => val.to_string(),
+            GlusterOption::SslCertificateDepth(val) => val.to_string(),
+            GlusterOption::SslCipherList(ref val) => val.to_string(),
+            GlusterOption::ServerStatedumpPath(ref val) => val.to_string_lossy().into_owned(),
+            GlusterOption::StorageHealthCheckInterval(val) => val.to_string(),
         }
     }
     pub fn from_str(s: &str, value: String) -> Result<GlusterOption, GlusterError> {
         match s {
-            "auth-allow" => {
-                return Ok(GlusterOption::AuthAllow(value));
-            }
-            "auth-reject" => {
-                return Ok(GlusterOption::AuthReject(value));
-            }
-            "auth.ssl-allow" => {
-                return Ok(GlusterOption::SslAllow(value));
-            }
+            "auth-allow" => Ok(GlusterOption::AuthAllow(value)),
+            "auth-reject" => Ok(GlusterOption::AuthReject(value)),
+            "auth.ssl-allow" => Ok(GlusterOption::SslAllow(value)),
             "client.ssl" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::ClientSsl(t));
+                Ok(GlusterOption::ClientSsl(t))
             }
             "cluster.favorite-child-policy" => {
                 let policy = SplitBrainPolicy::from_str(&value)?;
-                return Ok(GlusterOption::FavoriteChildPolicy(policy));
+                Ok(GlusterOption::FavoriteChildPolicy(policy))
             }
             "client-grace-timeout" => {
-                let i = try!(i64::from_str(&value));
-                return Ok(GlusterOption::ClientGraceTimeout(i));
+                let i = i64::from_str(&value)?;
+                Ok(GlusterOption::ClientGraceTimeout(i))
             }
             "cluster-self-heal-window-size" => {
-                let i = try!(u16::from_str(&value));
-                return Ok(GlusterOption::ClusterSelfHealWindowSize(i));
+                let i = u16::from_str(&value)?;
+                Ok(GlusterOption::ClusterSelfHealWindowSize(i))
             }
             "cluster-data-self-heal-algorithm" => {
                 let s = SelfHealAlgorithm::from_str(&value);
-                return Ok(GlusterOption::ClusterDataSelfHealAlgorithm(s));
+                Ok(GlusterOption::ClusterDataSelfHealAlgorithm(s))
             }
             "cluster-min-free-disk" => {
-                let i = try!(u8::from_str(&value));
-                return Ok(GlusterOption::ClusterMinFreeDisk(i));
+                let i = u8::from_str(&value)?;
+                Ok(GlusterOption::ClusterMinFreeDisk(i))
             }
             "cluster-stripe-block-size" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::ClusterStripeBlockSize(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::ClusterStripeBlockSize(i))
             }
             "cluster-self-heal-daemon" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::ClusterSelfHealDaemon(t));
+                Ok(GlusterOption::ClusterSelfHealDaemon(t))
             }
             "cluster-ensure-durability" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::ClusterEnsureDurability(t));
+                Ok(GlusterOption::ClusterEnsureDurability(t))
             }
             "diagnostics-brick-log-level" => {
                 let l = log::Level::from_str(&value).unwrap_or(log::Level::Debug);
-                return Ok(GlusterOption::DiagnosticsBrickLevel(l));
+                Ok(GlusterOption::DiagnosticsBrickLevel(l))
             }
             "diagnostics-client-log-level" => {
                 let l = log::Level::from_str(&value).unwrap_or(log::Level::Debug);
-                return Ok(GlusterOption::DiagnosticsClientLevel(l));
+                Ok(GlusterOption::DiagnosticsClientLevel(l))
             }
             "diagnostics-latency-measurement" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::DiagnosticsLatencyMeasurement(t));
+                Ok(GlusterOption::DiagnosticsLatencyMeasurement(t))
             }
             "diagnostics.count-fop-hits" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::DiagnosticsCountFopHits(t));
+                Ok(GlusterOption::DiagnosticsCountFopHits(t))
             }
             "diagnostics.stats-dump-interval" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::DiagnosticsStatsDumpInterval(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::DiagnosticsStatsDumpInterval(i))
             }
             "diagnostics.fop-sample-buf-size" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::DiagnosticsFopSampleBufSize(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::DiagnosticsFopSampleBufSize(i))
             }
             "diagnostics.fop-sample-interval" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::DiagnosticsFopSampleInterval(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::DiagnosticsFopSampleInterval(i))
             }
             "diagnostics.stats-dnscache-ttl-sec" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::DiagnosticsStatsDnscacheTtlSec(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::DiagnosticsStatsDnscacheTtlSec(i))
             }
             "diagnostics-dump-fd-stats" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::DiagnosticsDumpFdStats(t));
+                Ok(GlusterOption::DiagnosticsDumpFdStats(t))
             }
             "features-read-only" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::FeaturesReadOnly(t));
+                Ok(GlusterOption::FeaturesReadOnly(t))
             }
             "features-lock-heal" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::FeaturesLockHeal(t));
+                Ok(GlusterOption::FeaturesLockHeal(t))
             }
             "features-quota-timeout" => {
-                let i = try!(u16::from_str(&value));
-                return Ok(GlusterOption::FeaturesQuotaTimeout(i));
+                let i = u16::from_str(&value)?;
+                Ok(GlusterOption::FeaturesQuotaTimeout(i))
             }
             "geo-replication-indexing" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::GeoReplicationIndexing(t));
+                Ok(GlusterOption::GeoReplicationIndexing(t))
             }
             "network-frame-timeout" => {
-                let i = try!(u16::from_str(&value));
-                return Ok(GlusterOption::NetworkFrameTimeout(i));
+                let i = u16::from_str(&value)?;
+                Ok(GlusterOption::NetworkFrameTimeout(i))
             }
             "nfs-enable-ino32" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsEnableIno32(t));
+                Ok(GlusterOption::NfsEnableIno32(t))
             }
             "nfs-volume-access" => {
                 let s = AccessMode::from_str(&value);
-                return Ok(GlusterOption::NfsVolumeAccess(s));
+                Ok(GlusterOption::NfsVolumeAccess(s))
             }
             "nfs-trusted-write" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsTrustedWrite(t));
+                Ok(GlusterOption::NfsTrustedWrite(t))
             }
             "nfs-trusted-sync" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsTrustedSync(t));
+                Ok(GlusterOption::NfsTrustedSync(t))
             }
-            "nfs-export-dir" => {
-                return Ok(GlusterOption::NfsExportDir(value));
-            }
+            "nfs-export-dir" => Ok(GlusterOption::NfsExportDir(value)),
             "nfs-export-volumes" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsExportVolumes(t));
+                Ok(GlusterOption::NfsExportVolumes(t))
             }
             "nfs-rpc-auth-unix" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsRpcAuthUnix(t));
+                Ok(GlusterOption::NfsRpcAuthUnix(t))
             }
             "nfs-rpc-auth-null" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsRpcAuthNull(t));
+                Ok(GlusterOption::NfsRpcAuthNull(t))
             }
             "nfs-ports-insecure" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsPortsInsecure(t));
+                Ok(GlusterOption::NfsPortsInsecure(t))
             }
             "nfs-addr-namelookup" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsAddrNamelookup(t));
+                Ok(GlusterOption::NfsAddrNamelookup(t))
             }
             "nfs-register-with-portmap" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsRegisterWithPortmap(t));
+                Ok(GlusterOption::NfsRegisterWithPortmap(t))
             }
             "nfs-disable" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::NfsDisable(t));
+                Ok(GlusterOption::NfsDisable(t))
             }
             "performance-write-behind-window-size" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::PerformanceWriteBehindWindowSize(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::PerformanceWriteBehindWindowSize(i))
             }
             "performance-io-thread-count" => {
-                let i = try!(u8::from_str(&value));
-                return Ok(GlusterOption::PerformanceIoThreadCount(i));
+                let i = u8::from_str(&value)?;
+                Ok(GlusterOption::PerformanceIoThreadCount(i))
             }
             "performance-flush-behind" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::PerformanceFlushBehind(t));
+                Ok(GlusterOption::PerformanceFlushBehind(t))
             }
             "performance-cache-max-file-size" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::PerformanceCacheMaxFileSize(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::PerformanceCacheMaxFileSize(i))
             }
             "performance-cache-min-file-size" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::PerformanceCacheMinFileSize(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::PerformanceCacheMinFileSize(i))
             }
             "performance-cache-refresh-timeout" => {
-                let i = try!(u8::from_str(&value));
-                return Ok(GlusterOption::PerformanceCacheRefreshTimeout(i));
+                let i = u8::from_str(&value)?;
+                Ok(GlusterOption::PerformanceCacheRefreshTimeout(i))
             }
             "performance-cache-size" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::PerformanceCacheSize(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::PerformanceCacheSize(i))
             }
             "performance-readdir-ahead" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::PerformanceReadDirAhead(t));
+                Ok(GlusterOption::PerformanceReadDirAhead(t))
             }
             "performance-parallel-readdir" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::PerformanceReadDirAhead(t));
+                Ok(GlusterOption::PerformanceReadDirAhead(t))
             }
             "performance-readdir-cache-limit" => {
-                let i = try!(u64::from_str(&value));
-                return Ok(GlusterOption::PerformanceReadDirAheadCacheLimit(i));
+                let i = u64::from_str(&value)?;
+                Ok(GlusterOption::PerformanceReadDirAheadCacheLimit(i))
             }
             "server.ssl" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::ServerSsl(t));
+                Ok(GlusterOption::ServerSsl(t))
             }
             "server-allow-insecure" => {
                 let t = Toggle::from_str(&value);
-                return Ok(GlusterOption::ServerAllowInsecure(t));
+                Ok(GlusterOption::ServerAllowInsecure(t))
             }
             "server-grace-timeout" => {
-                let i = try!(u16::from_str(&value));
-                return Ok(GlusterOption::ServerGraceTimeout(i));
+                let i = u16::from_str(&value)?;
+                Ok(GlusterOption::ServerGraceTimeout(i))
             }
             "server-statedump-path" => {
                 let p = PathBuf::from(&value);
-                return Ok(GlusterOption::ServerStatedumpPath(p));
+                Ok(GlusterOption::ServerStatedumpPath(p))
             }
             "ssl.certificate-depth" => {
-                let i = try!(u8::from_str(&value));
-                return Ok(GlusterOption::SslCertificateDepth(i));
+                let i = u8::from_str(&value)?;
+                Ok(GlusterOption::SslCertificateDepth(i))
             }
-            "ssl.cipher-list" => {
-                return Ok(GlusterOption::SslCipherList(value));
-            }
+            "ssl.cipher-list" => Ok(GlusterOption::SslCipherList(value)),
             "storage-health-check-interval" => {
-                let i = try!(u16::from_str(&value));
-                return Ok(GlusterOption::StorageHealthCheckInterval(i));
+                let i = u16::from_str(&value)?;
+                Ok(GlusterOption::StorageHealthCheckInterval(i))
             }
-            _ => {
-                return Err(GlusterError::new(format!("Unknown option: {}", s)));
-            }
+            _ => Err(GlusterError::new(format!("Unknown option: {}", s))),
         }
     }
 }
@@ -934,16 +916,16 @@ fn process_output(output: std::process::Output) -> Result<i32, GlusterError> {
     let status = output.status;
 
     if status.success() {
-        return Ok(0);
+        Ok(0)
     } else {
-        return Err(GlusterError::new(try!(String::from_utf8(output.stderr))));
+        Err(GlusterError::new(String::from_utf8(output.stderr)?))
     }
 }
 
 // TODO: Change me to Result<std::process::Output, String>
 fn run_command<T>(
     command: &str,
-    arg_list: &Vec<T>,
+    arg_list: &[T],
     as_root: bool,
     script_mode: bool,
 ) -> std::process::Output
@@ -960,10 +942,8 @@ where
             cmd.arg(&arg);
         }
         debug!("About to run command: {:?}", cmd);
-        let output = cmd
-            .output()
-            .unwrap_or_else(|e| panic!("failed to execute process: {} ", e));
-        return output;
+        cmd.output()
+            .unwrap_or_else(|e| panic!("failed to execute process: {} ", e))
     } else {
         let mut cmd = std::process::Command::new(command);
         if script_mode {
@@ -973,10 +953,8 @@ where
             cmd.arg(&arg);
         }
         debug!("About to run command: {:?}", cmd);
-        let output = cmd
-            .output()
-            .unwrap_or_else(|e| panic!("failed to execute process: {} ", e));
-        return output;
+        cmd.output()
+            .unwrap_or_else(|e| panic!("failed to execute process: {} ", e))
     }
 }
 
@@ -996,7 +974,9 @@ pub fn get_local_ip() -> Result<IpAddr, GlusterError> {
     let default_route_stdout: String = String::from_utf8(cmd_output.stdout)?;
 
     // default via 192.168.1.1 dev wlan0  proto static
-    let default_addr = default_route_stdout.split_whitespace().collect::<Vec<&str>>();
+    let default_addr = default_route_stdout
+        .split_whitespace()
+        .collect::<Vec<&str>>();
 
     let arg_list = vec![
         "route".to_string(),
@@ -1024,7 +1004,7 @@ pub fn resolve_to_ip(address: &str) -> Result<String, String> {
     }
 
     if address == "localhost" {
-        let local_ip = try!(get_local_ip().map_err(|e| e.to_string()));
+        let local_ip = get_local_ip().map_err(|e| e.to_string())?;
         debug!(
             "hostname is localhost.  Resolving to local ip {}",
             &local_ip.to_string()
@@ -1041,23 +1021,21 @@ pub fn resolve_to_ip(address: &str) -> Result<String, String> {
     let status = output.status;
 
     if status.success() {
-        let output_str = try!(String::from_utf8(output.stdout).map_err(|e| e.to_string()));
+        let output_str = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
         // Remove the trailing . and newline
-        let trimmed = output_str.trim().trim_right_matches(".");
-        return Ok(trimmed.to_string());
+        let trimmed = output_str.trim().trim_right_matches('.');
+        Ok(trimmed.to_string())
     } else {
-        return Err(try!(
-            String::from_utf8(output.stderr).map_err(|e| e.to_string())
-        ));
+        Err(String::from_utf8(output.stderr).map_err(|e| e.to_string())?)
     }
 }
 
 /// A function to get the information from /etc/hostname
 pub fn get_local_hostname() -> Result<String, GlusterError> {
-    let mut f = try!(File::open("/etc/hostname"));
+    let mut f = File::open("/etc/hostname")?;
     let mut s = String::new();
-    try!(f.read_to_string(&mut s));
-    return Ok(s.trim().to_string());
+    f.read_to_string(&mut s)?;
+    Ok(s.trim().to_string())
 }
 
 // Note this will panic on failure to parse u64
@@ -1081,36 +1059,36 @@ where
     };
     if value.ends_with("PB") {
         match value.trim_right_matches("PB").parse::<T>() {
-            Ok(n) => return Some(n * k * k * k * k * k),
-            Err(_) => return None,
-        };
+            Ok(n) => Some(n * k * k * k * k * k),
+            Err(_) => None,
+        }
     } else if value.ends_with("TB") {
         match value.trim_right_matches("TB").parse::<T>() {
-            Ok(n) => return Some(n * k * k * k * k),
-            Err(_) => return None,
-        };
+            Ok(n) => Some(n * k * k * k * k),
+            Err(_) => None,
+        }
     } else if value.ends_with("GB") {
         match value.trim_right_matches("GB").parse::<T>() {
-            Ok(n) => return Some(n * k * k * k),
-            Err(_) => return None,
-        };
+            Ok(n) => Some(n * k * k * k),
+            Err(_) => None,
+        }
     } else if value.ends_with("MB") {
         match value.trim_right_matches("MB").parse::<T>() {
-            Ok(n) => return Some(n * k * k),
-            Err(_) => return None,
-        };
+            Ok(n) => Some(n * k * k),
+            Err(_) => None,
+        }
     } else if value.ends_with("KB") {
         match value.trim_right_matches("KB").parse::<T>() {
-            Ok(n) => return Some(n * k),
-            Err(_) => return None,
-        };
+            Ok(n) => Some(n * k),
+            Err(_) => None,
+        }
     } else if value.ends_with("Bytes") {
         match value.trim_right_matches("Bytes").parse::<T>() {
-            Ok(n) => return Some(n),
-            Err(_) => return None,
-        };
+            Ok(n) => Some(n),
+            Err(_) => None,
+        }
     } else {
-        return None;
+        None
     }
 }
 
@@ -1122,7 +1100,7 @@ pub fn get_local_bricks(volume: &str) -> Result<Vec<Brick>, GlusterError> {
         .bricks
         .iter()
         .filter(|brick| brick.peer.hostname == local_ip)
-        .map(|brick| brick.clone())
+        .cloned()
         .collect();
     Ok(bricks)
 }

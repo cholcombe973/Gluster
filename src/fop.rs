@@ -75,6 +75,7 @@ pub enum GlusterFOP {
     GfFopDiscard,
     Unknown,
 }
+
 impl FromStr for GlusterFOP {
     type Err = GlusterError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -138,61 +139,62 @@ impl FromStr for GlusterFOP {
         }
     }
 }
+
 impl GlusterFOP {
     fn to_string(&self) -> String {
-        match self {
-            &GlusterFOP::Unknown => "UNKNOWN".to_string(),
-            &GlusterFOP::GfFopNull => "NULL".to_string(),
-            &GlusterFOP::GfFopStat => "STAT".to_string(),
-            &GlusterFOP::GfFopReadlink => "READLINK".to_string(),
-            &GlusterFOP::GfFopMknod => "MKNOD".to_string(),
-            &GlusterFOP::GfFopMkdir => "MKDIR".to_string(),
-            &GlusterFOP::GfFopUnlink => "UNLINK".to_string(),
-            &GlusterFOP::GfFopRmdir => "RMDIR".to_string(),
-            &GlusterFOP::GfFopSymlink => "SYMLINK".to_string(),
-            &GlusterFOP::GfFopRename => "RENAME".to_string(),
-            &GlusterFOP::GfFopLink => "LINK".to_string(),
-            &GlusterFOP::GfFopTruncate => "TRUNCATE".to_string(),
-            &GlusterFOP::GfFopOpen => "OPEN".to_string(),
-            &GlusterFOP::GfFopRead => "READ".to_string(),
-            &GlusterFOP::GfFopWrite => "WRITE".to_string(),
-            &GlusterFOP::GfFopStatfs => "STATFS".to_string(),
-            &GlusterFOP::GfFopFlush => "FLUSH".to_string(),
-            &GlusterFOP::GfFopFsync => "FSYNC".to_string(),
-            &GlusterFOP::GfFopSetXAttr => "SETXATTR".to_string(),
-            &GlusterFOP::GfFopGetXAttr => "GETXATTR".to_string(),
-            &GlusterFOP::GfFopRemovexAttr => "REMOVEXATTR".to_string(),
-            &GlusterFOP::GfFopOpendir => "OPENDIR".to_string(),
-            &GlusterFOP::GfFopFSyncDir => "FSYNCDIR".to_string(),
-            &GlusterFOP::GfFopAccess => "ACCESS".to_string(),
-            &GlusterFOP::GfFopCreate => "CREATE".to_string(),
-            &GlusterFOP::GfFopFTruncate => "FTRUNCATE".to_string(),
-            &GlusterFOP::GfFopFstat => "FSTAT".to_string(),
-            &GlusterFOP::GfFopLk => "LK".to_string(),
-            &GlusterFOP::GfFopLookup => "LOOKUP".to_string(),
-            &GlusterFOP::GfFopReaddir => "READDIR".to_string(),
-            &GlusterFOP::GfFopInodelk => "INODELK".to_string(),
-            &GlusterFOP::GfFopFinodelk => "FINODELK".to_string(),
-            &GlusterFOP::GfFopEntrylk => "ENTRYLK".to_string(),
-            &GlusterFOP::GfFopFentrylk => "FENTRYLK".to_string(),
-            &GlusterFOP::GfFopXAttrOp => "XATTROP".to_string(),
-            &GlusterFOP::GfFopFXAttrOp => "FXATTROP".to_string(),
-            &GlusterFOP::GfFopFGetXattr => "FGETXATTR".to_string(),
-            &GlusterFOP::GfFopFSetXAttr => "FSETXATTR".to_string(),
-            &GlusterFOP::GfFopRChecksum => "RCHECKSUM".to_string(),
-            &GlusterFOP::GfFopSetAttr => "SETATTR".to_string(),
-            &GlusterFOP::GfFopFSetAttr => "FSETATTR".to_string(),
-            &GlusterFOP::GfFopReaddirp => "HIGH".to_string(),
-            &GlusterFOP::GfFopForget => "FORGET".to_string(),
-            &GlusterFOP::GfFopRelease => "RELEASE".to_string(),
-            &GlusterFOP::GfFopReleaseDir => "RELEASEDIR".to_string(),
-            &GlusterFOP::GfFopGetSpec => "GETSPEC".to_string(),
-            &GlusterFOP::GfFopFRemovexAttr => "FREMOVEXATTR".to_string(),
-            &GlusterFOP::GfFopFallocate => "LOW".to_string(),
-            &GlusterFOP::GfFopDiscard => "LEAST".to_string(),
-            &GlusterFOP::GfFopZerofill => "ZEROFILL".to_string(),
-            &GlusterFOP::GfFopIpc => "NORMAL".to_string(),
-            &GlusterFOP::GfFopMaxValue => "MAXVALUE".to_string(),
+        match *self {
+            GlusterFOP::Unknown => "UNKNOWN".to_string(),
+            GlusterFOP::GfFopNull => "NULL".to_string(),
+            GlusterFOP::GfFopStat => "STAT".to_string(),
+            GlusterFOP::GfFopReadlink => "READLINK".to_string(),
+            GlusterFOP::GfFopMknod => "MKNOD".to_string(),
+            GlusterFOP::GfFopMkdir => "MKDIR".to_string(),
+            GlusterFOP::GfFopUnlink => "UNLINK".to_string(),
+            GlusterFOP::GfFopRmdir => "RMDIR".to_string(),
+            GlusterFOP::GfFopSymlink => "SYMLINK".to_string(),
+            GlusterFOP::GfFopRename => "RENAME".to_string(),
+            GlusterFOP::GfFopLink => "LINK".to_string(),
+            GlusterFOP::GfFopTruncate => "TRUNCATE".to_string(),
+            GlusterFOP::GfFopOpen => "OPEN".to_string(),
+            GlusterFOP::GfFopRead => "READ".to_string(),
+            GlusterFOP::GfFopWrite => "WRITE".to_string(),
+            GlusterFOP::GfFopStatfs => "STATFS".to_string(),
+            GlusterFOP::GfFopFlush => "FLUSH".to_string(),
+            GlusterFOP::GfFopFsync => "FSYNC".to_string(),
+            GlusterFOP::GfFopSetXAttr => "SETXATTR".to_string(),
+            GlusterFOP::GfFopGetXAttr => "GETXATTR".to_string(),
+            GlusterFOP::GfFopRemovexAttr => "REMOVEXATTR".to_string(),
+            GlusterFOP::GfFopOpendir => "OPENDIR".to_string(),
+            GlusterFOP::GfFopFSyncDir => "FSYNCDIR".to_string(),
+            GlusterFOP::GfFopAccess => "ACCESS".to_string(),
+            GlusterFOP::GfFopCreate => "CREATE".to_string(),
+            GlusterFOP::GfFopFTruncate => "FTRUNCATE".to_string(),
+            GlusterFOP::GfFopFstat => "FSTAT".to_string(),
+            GlusterFOP::GfFopLk => "LK".to_string(),
+            GlusterFOP::GfFopLookup => "LOOKUP".to_string(),
+            GlusterFOP::GfFopReaddir => "READDIR".to_string(),
+            GlusterFOP::GfFopInodelk => "INODELK".to_string(),
+            GlusterFOP::GfFopFinodelk => "FINODELK".to_string(),
+            GlusterFOP::GfFopEntrylk => "ENTRYLK".to_string(),
+            GlusterFOP::GfFopFentrylk => "FENTRYLK".to_string(),
+            GlusterFOP::GfFopXAttrOp => "XATTROP".to_string(),
+            GlusterFOP::GfFopFXAttrOp => "FXATTROP".to_string(),
+            GlusterFOP::GfFopFGetXattr => "FGETXATTR".to_string(),
+            GlusterFOP::GfFopFSetXAttr => "FSETXATTR".to_string(),
+            GlusterFOP::GfFopRChecksum => "RCHECKSUM".to_string(),
+            GlusterFOP::GfFopSetAttr => "SETATTR".to_string(),
+            GlusterFOP::GfFopFSetAttr => "FSETATTR".to_string(),
+            GlusterFOP::GfFopReaddirp => "HIGH".to_string(),
+            GlusterFOP::GfFopForget => "FORGET".to_string(),
+            GlusterFOP::GfFopRelease => "RELEASE".to_string(),
+            GlusterFOP::GfFopReleaseDir => "RELEASEDIR".to_string(),
+            GlusterFOP::GfFopGetSpec => "GETSPEC".to_string(),
+            GlusterFOP::GfFopFRemovexAttr => "FREMOVEXATTR".to_string(),
+            GlusterFOP::GfFopFallocate => "LOW".to_string(),
+            GlusterFOP::GfFopDiscard => "LEAST".to_string(),
+            GlusterFOP::GfFopZerofill => "ZEROFILL".to_string(),
+            GlusterFOP::GfFopIpc => "NORMAL".to_string(),
+            GlusterFOP::GfFopMaxValue => "MAXVALUE".to_string(),
         }
     }
 }
@@ -229,7 +231,7 @@ fn test_parse_fop_sample() {
 }
 
 fn parse_fop_sample(input: &str) -> Result<GlusterFOPSample, GlusterError> {
-    let parts: Vec<&str> = input.split(",").collect();
+    let parts: Vec<&str> = input.split(',').collect();
     if parts.len() != 10 {
         return Err(GlusterError::new(format!(
             "Invalid FOP sample: {}.  Unable to parse",
