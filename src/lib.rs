@@ -1099,6 +1099,7 @@ pub fn get_local_bricks(volume: &str) -> Result<Vec<Brick>, GlusterError> {
     let bricks: Vec<Brick> = vol_info
         .bricks
         .iter()
+        .flatten()
         .filter(|brick| brick.peer.hostname == local_ip)
         .cloned()
         .collect();

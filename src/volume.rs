@@ -45,6 +45,12 @@ impl fmt::Debug for Brick {
     }
 }
 
+#[derive(Debug)]
+struct ReplicaInfo {
+    sets: u64,
+    count: u64,
+}
+
 /// An enum to select the transport method Gluster should use for the Volume
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Transport {
@@ -216,8 +222,9 @@ pub struct Volume {
     pub status: String,
     /// The underlying Transport mechanism
     pub transport: Transport,
-    /// A Vec containing all the Brick's that are in the Volume
-    pub bricks: Vec<Brick>,
+    /// A 2D Vec containing all the bricks of the volume in sets
+    /// Each set of bricks is a replica set
+    pub bricks: Vec<Vec<Brick>>,
     /// A Vec containing a tuple of options that are configured on this Volume
     pub options: BTreeMap<String, String>,
 }
@@ -442,6 +449,7 @@ Number of Bricks: 1 x 2 = 2
 Transport-type: tcp
 Bricks:
 Brick1: 172.31.41.135:/mnt/xvdf
+Brick1: 172.31.41.136:/mnt/xvdf
 Options Reconfigured:
 features.inode-quota: off
 features.quota: off
@@ -449,7 +457,32 @@ transport.address-family: inet
 performance.readdir-ahead: on
 nfs.disable: on
 "#;
+    let test_data2 = r#"
+
+Volume Name: gv0
+Type: Distributed-Disperse
+Volume ID: 920a8641-19a0-4d1c-a131-cde3f79253b5
+Status: Started
+Snapshot Count: 0
+Number of Bricks: 2 x (3 + 1) = 8
+Transport-type: tcp
+Bricks:
+Brick1: 192.168.1.61:/bricks/foo/brick1/gv0
+Brick2: 192.168.1.61:/bricks/foo/brick2/gv0
+Brick3: 192.168.1.61:/bricks/foo/brick3/gv0
+Brick4: 192.168.1.61:/bricks/foo/brick4/gv0
+Brick5: 192.168.1.61:/bricks/foo/brick5/gv0
+Brick6: 192.168.1.61:/bricks/foo/brick6/gv0
+Brick7: 192.168.1.61:/bricks/foo/brick7/gv0
+Brick8: 192.168.1.61:/bricks/foo/brick8/gv0
+Options Reconfigured:
+nfs.disable: on
+transport.address-family: inet
+cluster.disperse-self-heal-daemon: enable
+"#;
     let result = parse_volume_info("test", test_data).unwrap();
+    let result2 = parse_volume_info("gv0", test_data2).unwrap();
+    println!("result2: {:#?}", result2);
     let mut options_map: BTreeMap<String, String> = BTreeMap::new();
     options_map.insert("features.inode-quota".to_string(), "off".to_string());
     options_map.insert("features.quota".to_string(), "off".to_string());
@@ -463,18 +496,197 @@ nfs.disable: on
         id: Uuid::parse_str("cae6868d-b080-4ea3-927b-93b5f1e3fe69").unwrap(),
         status: "Started".to_string(),
         transport: Transport::Tcp,
-        bricks: vec![Brick {
-            peer: Peer {
-                uuid: Uuid::parse_str("78f68270-201a-4d8a-bad3-7cded6e6b7d8").unwrap(),
-                hostname: "test_ip".to_string(),
-                status: State::Connected,
+        bricks: vec![vec![
+            Brick {
+                peer: Peer {
+                    uuid: Uuid::parse_str("78f68270-201a-4d8a-bad3-7cded6e6b7d8").unwrap(),
+                    hostname: "test_ip".to_string(),
+                    status: State::Connected,
+                },
+                path: PathBuf::from("/mnt/xvdf"),
             },
-            path: PathBuf::from("/mnt/xvdf"),
-        }],
+            Brick {
+                peer: Peer {
+                    uuid: Uuid::parse_str("78f68270-201a-4d8a-bad3-7cded6e6b7d8").unwrap(),
+                    hostname: "test_ip".to_string(),
+                    status: State::Connected,
+                },
+                path: PathBuf::from("/mnt/xvdf"),
+            },
+        ]],
         options: options_map,
     };
     println!("vol_info: {:?}", vol_info);
     assert_eq!(vol_info, result);
+
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Operator {
+    Add,
+    Multiply,
+    IsEqualTo,
+}
+
+impl Operator {
+    fn from_char(s: &char) -> Result<Self, GlusterError> {
+        match s {
+            '+' => Ok(Operator::Add),
+            'x' => Ok(Operator::Multiply),
+            '=' => Ok(Operator::IsEqualTo),
+            _ => Err(GlusterError::new(format!("Unknown operator: '{}'", s))),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum Token {
+    Operator(Operator),
+    Number(u64),
+    LeftParenthesis,
+    RightParenthesis,
+}
+
+impl Token {
+    fn from_char(c: &char) -> Result<Self, GlusterError> {
+        if c.is_digit(10) {
+            return Ok(Token::Number(u64::from_str(&c.to_string())?));
+        }
+        match c {
+            '(' => Ok(Token::LeftParenthesis),
+            ')' => Ok(Token::RightParenthesis),
+            _ => Ok(Token::Operator(Operator::from_char(c)?)),
+        }
+    }
+}
+
+#[test]
+fn test_brick_expression_parser() {
+    let disperse_expr = "2 x (3 + 1) = 8";
+    let replica_expr = "1 x 2 = 2";
+
+    let diperse_res = parse_brick_expression(&disperse_expr).unwrap();
+    assert_eq!(
+        diperse_res,
+        vec![
+            Token::Number(2),
+            Token::Operator(Operator::Multiply),
+            Token::LeftParenthesis,
+            Token::Number(3),
+            Token::Operator(Operator::Add),
+            Token::Number(1),
+            Token::RightParenthesis,
+            Token::Operator(Operator::IsEqualTo),
+            Token::Number(8),
+        ]
+    );
+
+    let replica_res = parse_brick_expression(&replica_expr).unwrap();
+    assert_eq!(
+        replica_res,
+        vec![
+            Token::Number(1),
+            Token::Operator(Operator::Multiply),
+            Token::Number(2),
+            Token::Operator(Operator::IsEqualTo),
+            Token::Number(2),
+        ]
+    );
+}
+
+fn parse_brick_expression(expr: &str) -> Result<Vec<Token>, GlusterError> {
+    let mut tokens: Vec<Token> = Vec::new();
+    for c in expr.chars() {
+        if c.is_whitespace() {
+            continue;
+        }
+        tokens.push(Token::from_char(&c)?);
+    }
+
+    Ok(tokens)
+}
+
+fn is_brick_expr_valid(tokens: &[Token]) -> bool {
+    // Brick expressions can take 2 forms:
+    // 2 x 1 = 2
+    // 2 x (3 + 1) = 8
+    if tokens.len() == 5 {
+        match (&tokens[1], &tokens[3]) {
+            (Token::Operator(Operator::Multiply), Token::Operator(Operator::IsEqualTo)) => true,
+            _ => false,
+        }
+    } else if tokens.len() == 9 {
+        match (&tokens[1], &tokens[2], &tokens[4], &tokens[6], &tokens[7]) {
+            (
+                Token::Operator(Operator::Multiply),
+                Token::LeftParenthesis,
+                Token::Operator(Operator::Add),
+                Token::RightParenthesis,
+                Token::Operator(Operator::IsEqualTo),
+            ) => true,
+            _ => false,
+        }
+    } else {
+        false
+    }
+}
+
+fn interpret_brick_tokens(tokens: &[Token]) -> Result<ReplicaInfo, GlusterError> {
+    if tokens.len() == 5 {
+        let replica_sets = match tokens[0] {
+            Token::Number(s) => s,
+            _ => {
+                return Err(GlusterError::new(format!(
+                    "Invalid token: {:?} at position 0.  Expected number",
+                    tokens[0]
+                )));
+            }
+        };
+        let brick_count = match tokens[2] {
+            Token::Number(s) => s,
+            _ => {
+                return Err(GlusterError::new(format!(
+                    "Invalid token: {:?} at position 2.  Expected number",
+                    tokens[2]
+                )));
+            }
+        };
+        Ok(ReplicaInfo {
+            sets: replica_sets,
+            count: brick_count,
+        })
+    } else {
+        let replica_sets = match tokens[0] {
+            Token::Number(s) => s,
+            _ => {
+                return Err(GlusterError::new(format!(
+                    "Invalid token: {:?} at position 0.  Expected number",
+                    tokens[0]
+                )));
+            }
+        };
+        let brick_count = match tokens[3] {
+            Token::Number(s) => s,
+            _ => {
+                return Err(GlusterError::new(format!(
+                    "Invalid token: {:?} at position 3.  Expected number",
+                    tokens[3]
+                )));
+            }
+        } + match tokens[5] {
+            Token::Number(s) => s,
+            _ => {
+                return Err(GlusterError::new(format!(
+                    "Invalid token: {:?} at position 5.  Expected number",
+                    tokens[5]
+                )));
+            }
+        };
+        Ok(ReplicaInfo {
+            sets: replica_sets,
+            count: brick_count,
+        })
+    }
 }
 
 // Advantages: Faster
@@ -492,7 +704,7 @@ fn parse_volume_info2(volume: &str) -> Result<Volume, GlusterError> {
     let _vol_type = String::new();
     let mut transport = String::new();
     let options: BTreeMap<String, String> = BTreeMap::new();
-    let bricks: Vec<Brick> = Vec::new();
+    let bricks: Vec<Vec<Brick>> = Vec::new();
 
     for line in f.lines() {
         let line = line?;
@@ -520,8 +732,9 @@ fn parse_volume_info(volume: &str, output_str: &str) -> Result<Volume, GlusterEr
     let mut volume_name = String::new();
     let mut volume_options: BTreeMap<String, String> = BTreeMap::new();
     let mut status = String::new();
-    let mut bricks: Vec<Brick> = Vec::new();
+    let mut bricks: Vec<Vec<Brick>> = Vec::new();
     let mut id = Uuid::nil();
+    let mut brick_layout = ReplicaInfo { sets: 0, count: 0 };
 
     if output_str.trim() == "No volumes present" {
         debug!("No volumes present");
@@ -540,6 +753,8 @@ fn parse_volume_info(volume: &str, output_str: &str) -> Result<Volume, GlusterEr
 
     let mut parser_state = ParseState::Root;
 
+    let mut count = 1;
+    let mut set: Vec<Brick> = Vec::new();
     for line in output_str.lines() {
         if line.is_empty() {
             // Skip the first blank line in the output
@@ -581,7 +796,18 @@ fn parse_volume_info(volume: &str, output_str: &str) -> Result<Volume, GlusterEr
                 if name == "Transport-Type" {
                     transport_type = value.to_owned();
                 }
-                if name == "Number of Bricks" {}
+                if name == "Number of Bricks" {
+                    let tokens = parse_brick_expression(value)?;
+                    if is_brick_expr_valid(&tokens) {
+                        brick_layout = interpret_brick_tokens(&tokens)?;
+                        println!("brick_layout: {:?}", brick_layout);
+                    } else {
+                        return Err(GlusterError::new(format!(
+                            "Invalid gluster brick equation: {}",
+                            value
+                        )));
+                    }
+                }
             }
             ParseState::Bricks => {
                 let parts: Vec<String> = line.split(": ").map(|e| e.to_string()).collect();
@@ -624,7 +850,14 @@ fn parse_volume_info(volume: &str, output_str: &str) -> Result<Volume, GlusterEr
                     peer,
                     path: PathBuf::from(brick_parts[1].to_string()),
                 };
-                bricks.push(brick);
+                set.push(brick);
+                println!("count: {}", count);
+                if count == brick_layout.count {
+                    bricks.push(set.clone());
+                    set.clear();
+                    count = 0;
+                }
+                count += 1;
             }
             ParseState::Options => {
                 // Parse the options

@@ -2,7 +2,7 @@
 name = "gluster"
 description = "A library to interface with Gluster's CLI.  This is being leveraged by a Juju charm to manage a Gluster deployment"
 documentation = "https://cholcombe973.github.io/Gluster/gluster/index.html"
-version = "1.0.8"
+version = "2.0.0"
 authors = ["Chris Holcombe <xfactor973@gmail.com>"]
 repository = "https://github.com/cholcombe973/Gluster"
 license = "MIT"
