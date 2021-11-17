@@ -9,7 +9,7 @@ license = "MIT"
 categories = ["filesystem"]
 
 [dependencies]
-byteorder = "~1.4"
+byteorder = "~1.2"
 log = "~0.4"
 nom = "~4.1"
 regex = "~1.5"
